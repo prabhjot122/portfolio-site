@@ -1,0 +1,470 @@
+@import "tailwindcss";
+
+/* ===================================================================
+   ONE SUN — token layer
+
+   A light system built from a single directional light: warm sun,
+   warm shade. An earlier version made the shade cool on the theory
+   that outdoor shadow is sky-lit; over a warm ground it read as a blue
+   cast rather than as depth, so shade is now the ground darkening.
+
+   The load-bearing rule: surfaces only ever move *lighter* than the
+   ground. Separation is done by shadow and hairline, never by a darker
+   panel. Nothing in this file may introduce a surface darker than
+   --color-ground.
+
+   Contrast, worst case, measured by reading the shader's framebuffer
+   back across every sun position and time offset it can reach:
+     ink    15.13   AAA        ink-2  8.01   AAA
+     ink-3   5.58   AA (1.08 headroom — the binding constraint)
+     accent  7.95   AAA
+   =================================================================== */
+
+@theme {
+  /* --- surfaces: ground is the floor, everything else rises --- */
+  --color-ground: #faf8f5;
+  --color-surface: #fdfcfa;
+  --color-surface-2: #fefefd;
+
+  /* --- ink: warm near-black, never pure ---
+     ink-3 was #6E655C. Darkened to buy contrast headroom so the shader
+     can carry a visible luminance range instead of a 3.5% one that
+     reads as a flat page. 6.08:1 at the shader's lightest, 5.21:1 at
+     its darkest — both clear AA with room. */
+  --color-ink: #17120e;
+  --color-ink-2: #4a423b;
+  --color-ink-3: #625950;
+
+  /* --- hairlines: the other half of the depth system --- */
+  --color-hair: #e2dcd4;
+  --color-hair-strong: #d3cabf;
+
+  /* --- radius ---
+     Panels are softly rounded; controls are pills. The first pass went
+     to 5px, which read as sharp rather than considered. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+
+  /* --- accent: the one colour on the site.
+         Reserved for measured values. See .measured below. --- */
+  --color-accent: #0b4a5c;
+  --color-accent-deep: #073744;
+  --color-accent-lift: #0e5f76;
+
+  /* --- type --- */
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Scale. display-xl : body is 10.5:1 at full width. */
+  --text-display-xl: clamp(3.25rem, 9.5vw, 10.5rem);
+  --text-display-l: clamp(2.25rem, 4.6vw, 4.5rem);
+  --text-display-m: clamp(1.75rem, 2.6vw, 2.5rem);
+  --text-title: 1.375rem;
+  --text-body-l: 1.125rem;
+  --text-caption: 0.8125rem;
+  --text-micro: 0.6875rem;
+
+  --tracking-display-xl: -0.035em;
+  --tracking-display-l: -0.025em;
+  --tracking-display-m: -0.015em;
+  --tracking-micro: 0.16em;
+
+  /* --- motion: four curves, all four used --- */
+  --ease-exit: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-reveal: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-transition: cubic-bezier(0.87, 0, 0.13, 1);
+  --ease-settle: cubic-bezier(0.34, 1.28, 0.64, 1);
+
+  --duration-instant: 120ms;
+  --duration-quick: 240ms;
+  --duration-base: 420ms;
+  --duration-slow: 700ms;
+  --duration-curtain: 1100ms;
+}
+
+/* ===================================================================
+   The sun
+
+   One light vector, published here and read by every shadow on the
+   page. Phase 6 drives --sun-angle from the shared render loop; until
+   then it is parked at its rest value, which is also the permanent
+   value under reduced motion / no WebGL.
+   =================================================================== */
+@property --sun-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 32deg;
+}
+
+:root {
+  --sun-angle: 32deg;
+
+  /*
+     Shadow pigments as raw channels so alpha can vary per layer.
+
+     Both are warm now. The ambient was a blue-grey (42 60 92) on the
+     reasoning that outdoor shade is sky-lit and therefore cool — which
+     is true of photographs and wrong for this page: at these alphas
+     over a warm ground it read as a blue cast rather than as shade, and
+     the original brief asked for warm shadows. The ambient is now a
+     deep warm neutral, so depth reads as the ground darkening rather
+     than as a colour shift.
+  */
+  --shadow-warm: 120 78 44;
+  --shadow-ambient: 84 70 56;
+
+  /*
+     Two-part shadow: tight warm contact (bounced light off the ground)
+     over a wider, softer ambient.
+
+     SIZED TO THE ELEMENT. The first version used one scale everywhere —
+     a 54px blur at 26px offset — which is right for a large media frame
+     and badly wrong for a 248px rail card, where the shadow footprint
+     approaches the card's own size. Stacked at 0.075 + 0.05 alpha it
+     composited to #EAEAEA and read as a grey panel behind the rail
+     rather than a shadow under it.
+
+     Rule: blur radius must stay well under the element's short side.
+     Small panels take --shadow-sm. Nothing else.
+  */
+  --shadow-sm:
+    0 1px 1px rgb(var(--shadow-warm) / 0.055),
+    0 1px 2px rgb(var(--shadow-ambient) / 0.05),
+    0 3px 6px rgb(var(--shadow-ambient) / 0.035);
+
+  --shadow-raised:
+    0 1px 1px rgb(var(--shadow-warm) / 0.07),
+    0 2px 4px rgb(var(--shadow-ambient) / 0.055),
+    0 8px 16px rgb(var(--shadow-ambient) / 0.04);
+
+  --shadow-raised-lg:
+    0 1px 2px rgb(var(--shadow-warm) / 0.08),
+    0 6px 12px rgb(var(--shadow-ambient) / 0.065),
+    0 18px 34px rgb(var(--shadow-ambient) / 0.045);
+
+  --shadow-press:
+    0 1px 1px rgb(var(--shadow-warm) / 0.1),
+    0 1px 2px rgb(var(--shadow-ambient) / 0.07);
+
+  /* Rail gutter — pages reserve this; see components/side-nav.tsx. */
+  --rail-width: 16.5rem;
+}
+
+/* ===================================================================
+   Base
+   =================================================================== */
+
+html {
+  background-color: var(--color-ground);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  background-color: var(--color-ground);
+  color: var(--color-ink);
+  /* The atmosphere canvas sits behind this; keep the body transparent
+     from Phase 6 onward is NOT safe (host ground bleeds through on
+     paint), so the ground stays painted here and the canvas layers
+     over it at low alpha. */
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-surface-2);
+}
+
+/* ===================================================================
+   Focus — designed, not defaulted.
+
+   The audit found 23 interactive elements and zero focus styles. This
+   is the single ring every one of them uses. It is the accent at full
+   strength, offset so it reads as a drawn rule rather than a border,
+   and it never shifts layout.
+   =================================================================== */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* On the inked (dark) surfaces — primary buttons, active nav rows —
+   the accent ring would disappear into the fill, so it inverts. */
+.on-ink:focus-visible {
+  outline-color: var(--color-surface-2);
+  outline-offset: 2px;
+}
+
+/* Never show the ring for pointer users. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ===================================================================
+   Custom cursor
+
+   The class is added by components/cursor.tsx only once it has actually
+   mounted, and only on fine pointers — so touch, no-JS and coarse
+   pointers keep the native cursor rather than losing it to a rule that
+   assumed JS ran.
+
+   Text inputs and disabled controls keep their native cursor
+   regardless: the reticle hides over them, and a hidden custom cursor
+   plus `cursor: none` would leave nothing at all.
+   =================================================================== */
+.has-custom-cursor,
+.has-custom-cursor a,
+.has-custom-cursor button {
+  cursor: none;
+}
+
+.has-custom-cursor input,
+.has-custom-cursor textarea,
+.has-custom-cursor select,
+.has-custom-cursor [contenteditable="true"] {
+  cursor: auto;
+}
+
+.has-custom-cursor :disabled {
+  cursor: not-allowed;
+}
+
+/* ===================================================================
+   Type helpers
+   =================================================================== */
+
+.display-xl {
+  font-family: var(--font-serif);
+  font-size: var(--text-display-xl);
+  line-height: 0.94;
+  letter-spacing: var(--tracking-display-xl);
+  font-weight: 300;
+  text-wrap: balance;
+}
+
+.display-l {
+  font-family: var(--font-serif);
+  font-size: var(--text-display-l);
+  line-height: 1.04;
+  letter-spacing: var(--tracking-display-l);
+  font-weight: 300;
+  text-wrap: balance;
+}
+
+.display-m {
+  font-family: var(--font-serif);
+  font-size: var(--text-display-m);
+  line-height: 1.12;
+  letter-spacing: var(--tracking-display-m);
+  font-weight: 300;
+}
+
+.micro {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  color: var(--color-ink-3);
+}
+
+/*
+ * THE ONE TYPE RULE
+ * Anything measured is set in the data face and inked in the accent.
+ * Applying this class to something that is not a measured value is a
+ * bug — it is the only place colour is allowed on this site.
+ */
+.measured {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+  font-feature-settings: "ss01";
+}
+
+/*
+ * Italic serif overflows its inline box, and background-clip / overflow
+ * then cut the tail of the glyph. The audit caught this clipping the
+ * hero's accent word by 13.4px at 800px wide (~24px at desktop). Any
+ * italic display run gets this.
+ */
+.italic-safe {
+  display: inline-block;
+  padding-right: 0.14em;
+  margin-right: -0.06em;
+}
+
+/* ===================================================================
+   Typewriter caret
+
+   Two states: a hard square-wave blink while typing (a caret that eases
+   reads as a glow, not a cursor), and a slow fade to nothing once the
+   line lands, so the headline is left clean rather than pulsing at the
+   reader forever.
+   =================================================================== */
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes caret-rest {
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-caret {
+  animation: caret-blink 1s steps(1, end) infinite;
+}
+
+.animate-caret-rest {
+  animation: caret-rest 1.6s var(--ease-exit) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-caret,
+  .animate-caret-rest {
+    display: none;
+  }
+}
+
+/* ===================================================================
+   Depth utilities — the only sanctioned way to raise a surface
+   =================================================================== */
+
+/* Small panels — rail cards, chips. Tight shadow, drawn edge. */
+.lift-sm {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-hair);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.lift {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-hair);
+  box-shadow: var(--shadow-raised);
+}
+
+.lift-lg {
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-hair);
+  box-shadow: var(--shadow-raised-lg);
+}
+
+/*
+ * Interactive raise.
+ *
+ * `box-shadow` is a paint property, so transitioning it violates the
+ * transform-and-opacity-only rule this project runs on. Instead the
+ * deeper shadow lives on a pseudo-element that cross-fades: the base
+ * shadow is static, the lifted one fades in over it, and the only
+ * animated properties are opacity and transform.
+ *
+ * The pseudo-element is inset:0 with the parent's radius and sits
+ * behind content on its own layer, so it never intercepts a pointer.
+ */
+.lift-interactive {
+  position: relative;
+  box-shadow: var(--shadow-raised);
+}
+
+.lift-interactive::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  box-shadow: var(--shadow-raised-lg);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-exit);
+  pointer-events: none;
+}
+
+.lift-interactive:hover::after,
+.lift-interactive:focus-visible::after {
+  opacity: 1;
+}
+
+.lift-interactive:active::after {
+  opacity: 0;
+}
+
+/* ===================================================================
+   Grain — dither.
+
+   Near-white gradients band badly on 8-bit displays. This is the
+   dither that stops it, and it doubles as the paper texture. Phase 6
+   moves the primary grain into the shader and keeps this as the
+   fallback layer.
+   =================================================================== */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  /* Pulled back from 0.42 now that the sky carries real structure of
+     its own — the grain is here to break up banding and add tooth, not
+     to be the texture. */
+  opacity: 0.3;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.3'/%3E%3C/svg%3E");
+}
+
+/* ===================================================================
+   Lenis
+   =================================================================== */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Scrollable without a visible bar — the rail's menu on short viewports. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===================================================================
+   Reduced motion
+
+   The fallback is a design deliverable, not an error state: the sun
+   parks at its rest angle, shadows stay, atmosphere stays. Only
+   movement stops.
+   =================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
