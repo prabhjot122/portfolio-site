@@ -35,7 +35,7 @@ export default function PersonalPage() {
                   label={c.title}
                   className="transition-opacity duration-500 group-hover:opacity-80"
                 />
-                <h2 className="mt-5 font-serif text-2xl font-light md:text-3xl">
+                <h2 className="display-m mt-5 text-[clamp(1.375rem,2vw,1.75rem)]">
                   {c.title}
                 </h2>
                 <p className="mt-2 text-ink-3">{c.blurb}</p>

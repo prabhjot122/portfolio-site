@@ -10,9 +10,8 @@ import type { ReactNode } from "react";
  * only reaches CSS transitions and keyframes. Every entrance on this
  * site is driven by motion/react in JavaScript, which that media query
  * cannot touch — so without this the reduced-motion setting was being
- * honoured by the curtain, the smooth scroll and the shader, and
- * quietly ignored by all 31 scroll reveals and the entire load
- * sequence.
+ * honoured by the curtain and the smooth scroll, and quietly ignored by
+ * all 31 scroll reveals and the entire load sequence.
  *
  * `reducedMotion="user"` makes motion/react read the same preference:
  * transform and layout animations are dropped, opacity is kept, so

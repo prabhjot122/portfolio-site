@@ -19,9 +19,10 @@ import { useEffect, useRef, useState } from "react";
  * element is a markup change and never a listener.
  *
  * Form:
- * the ring is a reticle rather than a blob — square corner brackets that
- * match the registration marks on the media frames, so the pointer and
- * the empty plates are speaking the same language.
+ * the ring is a circle drawn in pencil — the same roughened loop the
+ * side rail throws around the current section. That is the whole idea:
+ * the cursor is the pencil those marks came from, so circling something
+ * to say "this one" is a gesture the page and the pointer share.
  *
  * Guarantees, all of them load-bearing:
  *   - never mounts on coarse/touch pointers, and tears itself down if
@@ -93,6 +94,29 @@ export function Cursor() {
 
     let frame = 0;
 
+    /*
+      The loop parks itself.
+
+      It used to hold a requestAnimationFrame open for the life of the
+      page and write two transforms on every single frame, whether or
+      not the pointer had moved — and a stationary pointer is the normal
+      state of a page someone is reading. Each of those writes dirties a
+      composited layer, so the cost was paid by the compositor at full
+      refresh rate for no movement at all.
+
+      Now the loop stops as soon as the ring has caught up with the
+      pointer, and any input that can move either body starts it again.
+      Nothing about the motion changes: the last frame before parking is
+      still written, so both bodies are committed at their final
+      position.
+    */
+    let parked = false;
+    const kick = () => {
+      if (!parked) return;
+      parked = false;
+      frame = requestAnimationFrame(tick);
+    };
+
     const onMove = (e: PointerEvent) => {
       pointer.current.x = e.clientX;
       pointer.current.y = e.clientY;
@@ -102,6 +126,7 @@ export function Cursor() {
         ringPos.current.x = e.clientX;
         ringPos.current.y = e.clientY;
       }
+      kick();
     };
 
     const onOver = (e: PointerEvent) => {
@@ -133,6 +158,10 @@ export function Cursor() {
         r.width <= 260 && r.height <= 120
           ? { x: r.left + r.width / 2, y: r.top + r.height / 2 }
           : null;
+
+      // A new magnet moves the ring's target without the pointer having
+      // moved, so the loop has to be running to carry it there.
+      kick();
     };
 
     const onLeaveWindow = () => {
@@ -164,14 +193,23 @@ export function Cursor() {
         ty += (m.y - p.y) * MAGNET;
       }
 
-      ringPos.current.x += (tx - ringPos.current.x) * EASE_RING;
-      ringPos.current.y += (ty - ringPos.current.y) * EASE_RING;
+      const dx = tx - ringPos.current.x;
+      const dy = ty - ringPos.current.y;
+      ringPos.current.x += dx * EASE_RING;
+      ringPos.current.y += dy * EASE_RING;
 
       if (ring.current) {
         ring.current.style.transform = `translate3d(${ringPos.current.x}px, ${ringPos.current.y}px, 0) translate(-50%, -50%)`;
       }
       if (dot.current) {
         dot.current.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%)`;
+      }
+
+      // Caught up. The remaining travel is a twentieth of a pixel, which
+      // is not worth holding the compositor open for.
+      if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) {
+        parked = true;
+        return;
       }
 
       frame = requestAnimationFrame(tick);
@@ -213,10 +251,12 @@ export function Cursor() {
             opacity: hidden ? 0 : 1,
           }}
         >
-          <Bracket className="top-0 left-0" />
-          <Bracket className="top-0 right-0 rotate-90" />
-          <Bracket className="bottom-0 left-0 -rotate-90" />
-          <Bracket className="right-0 bottom-0 rotate-180" />
+          {/* Two loops, not one. A single pass reads as a vector circle
+              however hard it wobbles; a second, slightly offset pass is
+              what someone does when they circle a thing on paper, and it
+              is the detail that sells the whole cursor. */}
+          <span className="absolute inset-0 rounded-full border-[1.5px] border-accent [filter:url(#sk-rough-2)]" />
+          <span className="absolute inset-[2px] rounded-full border border-accent opacity-55 [filter:url(#sk-rough-1)]" />
         </div>
 
         {label && (
@@ -229,24 +269,16 @@ export function Cursor() {
         )}
       </div>
 
-      {/* dot — the true pointer position */}
+      {/* dot — the true pointer position, and the point of the pencil */}
       <div
         ref={dot}
         className="pointer-events-none fixed top-0 left-0 will-change-transform"
       >
         <div
-          className="h-1 w-1 rounded-full bg-accent transition-opacity duration-[var(--duration-instant)]"
+          className="h-[5px] w-[5px] rounded-full bg-ink transition-opacity duration-[var(--duration-instant)]"
           style={{ opacity: hidden ? 0 : 1 }}
         />
       </div>
     </div>
-  );
-}
-
-function Bracket({ className = "" }: { className?: string }) {
-  return (
-    <span
-      className={`absolute block h-1.5 w-1.5 border-t border-l border-accent ${className}`}
-    />
   );
 }

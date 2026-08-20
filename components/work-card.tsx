@@ -28,13 +28,10 @@ export function WorkCard({ project }: { project: Project }) {
             <span className="flex items-baseline gap-2.5 text-title">
               <span className="relative">
                 {project.title}
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-ink transition-transform duration-[var(--duration-base)] ease-[var(--ease-exit)] group-hover:scale-x-100"
-                />
+                <span aria-hidden className="swipe" />
               </span>
               {project.badge && (
-                <span className="micro rounded-full border border-hair-strong px-2 py-0.5 text-ink-3">
+                <span className="ink-outline micro rounded-full px-2 py-0.5 text-ink-3">
                   {project.badge}
                 </span>
               )}

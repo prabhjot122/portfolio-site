@@ -10,7 +10,7 @@ function Chapter({ title, body }: { title: string; body: string }) {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
       <div className="md:col-span-4">
-        <h2 className="font-serif text-2xl font-light md:text-3xl">{title}</h2>
+        <h2 className="display-m text-[clamp(1.375rem,2vw,1.75rem)]">{title}</h2>
       </div>
       <div className="md:col-span-8">
         <p className="max-w-[62ch] text-lg leading-[1.6] text-ink-2">
@@ -99,7 +99,15 @@ export default async function ProjectPage({
           <Chapter title="The outcome" body={project.outcome} />
         </div>
 
-        {/* Numbers stated in the source material, nothing inferred. */}
+        {/*
+          Numbers stated in the source material, nothing inferred — and
+          NOTHING AT ALL when the source material states none. An empty
+          row here used to render as a rule with a void under it, which
+          reads as a section that failed to load rather than as a
+          project whose numbers were never published. A project with no
+          metrics simply does not have this row.
+        */}
+        {project.metrics.length > 0 && (
         <dl className="mt-16 grid grid-cols-2 border-t border-hair md:grid-cols-4">
           {project.metrics.map((m) => (
             <div
@@ -119,16 +127,61 @@ export default async function ProjectPage({
             </div>
           ))}
         </dl>
+        )}
 
-        <div className="mt-16 flex flex-wrap gap-2">
-          {project.stack.map((t) => (
-            <span
-              key={t}
-              className="rounded-full border border-hair px-4 py-2 text-[13px] text-ink-2"
-            >
-              {t}
-            </span>
-          ))}
+        {/*
+          UNDER THE HOOD.
+
+          The technical claim, made where it can be checked — on the page
+          about the thing that was actually built, next to the problem it
+          solved. Never on the home page, and never as a wall of
+          framework logos: a logo cloud says "we have heard of Redis",
+          whereas "source grounding, then verification" says what the
+          system does that a weekend build would not.
+
+          Capabilities lead and are set as a list; the stack follows in
+          the micro face as a footnote, because which library did it is
+          the least interesting true thing about any of this.
+        */}
+        <div className="mt-20 grid grid-cols-1 gap-6 border-t border-hair pt-10 md:grid-cols-12 md:gap-12">
+          <div className="md:col-span-4">
+            <h2 className="display-m text-[clamp(1.375rem,2vw,1.75rem)]">
+              Under the hood
+            </h2>
+          </div>
+          <div className="md:col-span-8">
+            <ul className="grid gap-x-10 sm:grid-cols-2">
+              {project.underTheHood.map((c) => (
+                <li
+                  key={c}
+                  className="flex items-baseline gap-3 border-b border-hair py-3 text-[15px] text-ink"
+                >
+                  <span aria-hidden className="text-hair-strong">
+                    &mdash;
+                  </span>
+                  {c}
+                </li>
+              ))}
+            </ul>
+
+            {/* Same rule as the metrics row above: a "Built with"
+                label over an empty tray is worse than no label. */}
+            {project.stack.length > 0 && (
+            <div className="mt-8">
+              <span className="micro">Built with</span>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {project.stack.map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full border border-hair px-3.5 py-1.5 text-[12px] text-ink-3"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+            )}
+          </div>
         </div>
 
         <div className="mt-16">

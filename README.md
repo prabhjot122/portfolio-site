@@ -17,11 +17,12 @@ npm run dev
 
 | Path | What it is |
 | --- | --- |
-| `lib/content.ts` | **All site copy.** Name, role, hero, contact, projects, services, testimonials, articles. Start here. |
+| `lib/content.ts` | **All site copy.** Brand, hero, contact, projects, services, process, validation, articles. Start here. |
 | `app/globals.css` | **The token layer.** Colour, type scale, motion curves, depth utilities, focus, grain. Nothing hardcodes a value outside this file. |
 | `lib/motion.ts` | Easing curves, durations, stagger, variant atoms, load choreography. |
 | `components/motion.tsx` | Orchestration primitives — `Stage`, `Rise`, `Frame`, `MaskLine`. |
-| `components/atmosphere.tsx` | The WebGL sky. One canvas, one loop, publishes the sun vector. |
+| `components/atmosphere.tsx` | The sheet behind everything. Three static CSS layers, no client JS. |
+| `components/sketch-defs.tsx` | The roughening filters every drawn edge resolves against. |
 | `components/cursor.tsx` | Cursor state machine — inertia, magnetism, reticle. |
 | `components/side-nav.tsx` | Desktop left rail — identity, stats, menu, contact. |
 | `components/ui.tsx` | Primitives: `Measured`, underline link, pills, heading, eyebrow. |
@@ -111,35 +112,99 @@ Four curves, all in `lib/motion.ts`: `exit`, `reveal`, `transition`,
 something needs to gain depth on hover, cross-fade
 `.lift-interactive::after` rather than transitioning the shadow.
 
-## The sun
+## The sheet
 
-`components/atmosphere.tsx` renders the sky and publishes `--sun-angle`
-on `:root`, quantised to whole degrees and written only on change (a
-custom-property write on `:root` invalidates paint for every element
-reading it).
+`components/atmosphere.tsx` is the background. It is a **server
+component with no client JavaScript** — three static CSS layers, painted
+once and thereafter only composited.
 
-Scroll drives it: 52° at the top of the page, 12° at the bottom.
+It used to be a WebGL canvas running a cross-hatching shader with a sun
+that tracked scroll. That is gone, and the reason is worth keeping:
+
+> A background that repaints, at any rate, is a moving surface
+> underneath ~200 elements carrying `filter: url(#sk-rough-*)`. Every
+> repaint re-composites the stack above it, and re-compositing an SVG
+> displacement filter re-runs `feTurbulence` + `feDisplacementMap` on
+> the CPU. The shader's own cost (~0.55ms/frame once tuned) was never
+> the problem; the cost it imposed on everything above it was — and it
+> scaled with how many drawn panels were on screen, which is why the
+> page got heavier the further down you scrolled.
 
 Constraints that are load-bearing, not preferences:
 
-- DPR clamped to 1.5
-- loop paused on `visibilitychange`
-- buffers, program and shaders deleted on unmount — but **never**
-  `loseContext()`, which poisons every later mount
-- the shader is held inside a measured luminance band; widening it
-  breaks AA on `--color-ink-3`
-- the gradient is **dithered**. Without it a near-white ramp this
-  shallow bands into visible stripes.
+- **Nothing in this layer may animate.** Not a transition, not a
+  keyframe, not a scroll-linked transform.
+- The darkest pixel it can produce is `#DDD9CE` (hatching over the
+  bottom-left corner). The contrast table in `app/globals.css` is
+  measured against that. Raising the hatch opacity, darkening the
+  gradient's end stop, or letting the grid mask overlap the hatch mask
+  are all **contrast changes**, not style changes.
+- The grid and hatch masks are complementary on purpose — if they
+  stack, `--color-ink-3` falls to 5.67, below the documented 5.76.
+
+The same rule applies elsewhere: **nothing carrying an SVG filter may
+sit inside a scroll-driven subtree.** `PlaceholderMedia` used to drift
+its corner ticks and thirds guides inside a `<Parallax>`, which cost 96
+filter re-rasterisations per frame across the home page's twelve plates.
+They are frame furniture and now sit on the plate instead.
+
+## Drawn edges
+
+Every border on the site is a straight CSS border pushed off its line by
+a displacement filter in `components/sketch-defs.tsx`. Two dials, and
+they are independent:
+
+- **Amplitude** (`scale`) is how far off true the line goes. On its own
+  it produces a *bowed* line — mechanical, just bent.
+- **Tremor** (`baseFrequency`, `numOctaves`) is how often the line
+  changes direction. This is the part that reads as a hand.
+
+Base frequency is by far the stronger lever and it is free. Measured as
+mean |second difference| along a 560px edge:
+
+| setting | peak off true | tremor |
+| --- | --- | --- |
+| `bf 0.011, scale 4.6` | 1.50px | 0.046 |
+| `bf 0.011, scale 10` | 2.50px | 0.106 |
+| `bf 0.025, scale 6, ×2 passes` | 1.67px | 0.115 |
+| `bf 0.035, scale 10` | 3.00px | 0.247 |
+
+Border filters run **two passes at different seeds, merged** — the line
+is drawn twice and the passes never quite agree, which is what separates
+a scribble from a warp. `sk-rough-4` (hatching) is deliberately single
+pass: it is already irregular, and it carries the most filtered area on
+the page by a wide margin.
+
+Three traps, all of which have bitten this file already:
+
+1. **Octaves only count if they clear a pixel.** Each octave halves the
+   amplitude, so at a small `scale` the high ones quantise away — real
+   arithmetic producing nothing visible. Cutting them then looks free.
+   The fix is to raise the base frequency, not to add octaves.
+2. **The hairline trap.** A filter's region defaults to 120% of the
+   element's box, so on a 1px rule it is 1.2px and clips the displaced
+   line straight back to true. 54 rules on the home page were paying for
+   turbulence and rendering perfectly straight. Thin rules use
+   `sk-rule-h` / `sk-rule-v`, whose region is inflated on the thin axis
+   only — a percentage region cannot serve both a 340px card and a 1px
+   rule.
+3. **Never build the filter class by interpolation.** Tailwind extracts
+   arbitrary values by scanning source for *literal* strings, so
+   `` `[filter:url(#sk-rule-${axis})]` `` is never generated and
+   silently resolves to `filter: none`. Use an inline `style`.
+
+Cost: a filtered element rasterises when it **paints**, not when it
+scrolls. These are one-time costs per element — but only as long as
+nothing repainting sits underneath them. See "The sheet" above.
 
 ## Fallbacks
 
 Treated as design deliverables, not error states:
 
-- **No WebGL** → the same sky as a static CSS gradient, sun parked.
 - **Reduced motion** → `MotionConfig reducedMotion="user"` in
   `components/motion-provider.tsx` makes motion/react honour the
   preference; the CSS media query alone cannot, because every entrance
-  is JS-driven. Curtain and smooth scroll are skipped, the sun parks.
+  is JS-driven. Curtain and smooth scroll are skipped.
 - **Touch / coarse pointer** → the cursor never mounts, and the native
   cursor is never hidden.
 

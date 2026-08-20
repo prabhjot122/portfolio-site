@@ -26,8 +26,12 @@ export function Measured({
 
 /**
  * Link whose underline wipes in from the left on hover.
+ *
  * The rule is a child span rather than a border so it can transform
- * independently of the text.
+ * independently of the text — and under the graphite theme it is a
+ * pencil stroke rather than a hairline: thicker, roughened, and sitting
+ * slightly low the way an underline drawn in one pass does. See
+ * `.swipe` in globals.css.
  */
 export function UnderlineLink({
   href,
@@ -43,10 +47,7 @@ export function UnderlineLink({
   const inner = (
     <>
       {children}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -bottom-px h-px origin-left scale-x-0 bg-current transition-transform duration-[var(--duration-quick)] ease-[var(--ease-exit)] group-hover:scale-x-100"
-      />
+      <span aria-hidden className="swipe" />
     </>
   );
 
@@ -67,12 +68,16 @@ export function UnderlineLink({
 }
 
 /**
- * Primary call to action: inked fill on the light ground.
+ * Primary call to action: a shape filled in solid graphite.
  *
- * Rises on hover rather than fading — opacity fade was the audit's
- * laziest hover and it reads as the button switching off. Lift + a
- * deeper shadow reads as the button coming toward you, which is what
- * the light model says should happen.
+ * `ink-blob` puts the fill on a pseudo-element so the silhouette can be
+ * roughened without displacing the label — putting the filter on the
+ * button itself smears the text, which is the single fastest way to
+ * make a sketch theme look broken rather than drawn.
+ *
+ * Rises on hover rather than fading, and the hatch beneath it slides
+ * out and gains density as it goes: the object moved, so the shading
+ * under it was redrawn.
  */
 export function PillButton({
   href,
@@ -90,14 +95,14 @@ export function PillButton({
     <Link
       href={href}
       data-cursor="button"
-      className={`on-ink lift-interactive group inline-flex ${h} items-center gap-2 rounded-full bg-ink leading-none text-surface-2 transition-transform duration-[var(--duration-base)] ease-[var(--ease-exit)] hover:-translate-y-0.5 active:translate-y-0 ${className}`}
+      className={`ink-blob on-ink lift-interactive group inline-flex ${h} items-center gap-2 rounded-full leading-none text-surface-2 transition-transform duration-[var(--duration-base)] ease-[var(--ease-exit)] hover:-translate-y-0.5 active:translate-y-0 ${className}`}
     >
       {children}
     </Link>
   );
 }
 
-/** Outlined pill — secondary. */
+/** Outlined pill — secondary. Drawn edge, no fill. */
 export function PillGhost({
   children,
   onClick,
@@ -112,7 +117,7 @@ export function PillGhost({
       onClick={onClick}
       aria-label={label}
       data-cursor="button"
-      className="inline-flex h-9 items-center gap-1.5 rounded-full border border-hair-strong bg-surface px-3 text-micro tracking-[var(--tracking-micro)] text-ink-2 uppercase transition-colors duration-[var(--duration-instant)] hover:border-ink-3 hover:text-ink"
+      className="ink-outline inline-flex h-9 items-center gap-1.5 rounded-full bg-surface px-3 text-micro tracking-[var(--tracking-micro)] text-ink-2 uppercase transition-colors duration-[var(--duration-instant)] hover:text-ink"
     >
       {children}
     </button>

@@ -7,7 +7,7 @@ import {
   useSpring,
   useTransform,
 } from "motion/react";
-import { useRef, type ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 
 import { EASE, DUR, STAGGER, s, rise, slide, frame, maskLine, stage } from "@/lib/motion";
 
@@ -24,6 +24,17 @@ import { EASE, DUR, STAGGER, s, rise, slide, frame, maskLine, stage } from "@/li
 type Common = {
   children: ReactNode;
   className?: string;
+  /**
+   * Inline style, for values that are DATA rather than design — a
+   * per-instance mount radius, a plate ratio that came from the content
+   * layer. Tailwind only generates arbitrary values it can find as
+   * literal strings in source, so anything computed has to arrive this
+   * way.
+   *
+   * Not an escape hatch for styling: if the value is the same at every
+   * call site it belongs in a class.
+   */
+  style?: CSSProperties;
 };
 
 /**
@@ -78,9 +89,9 @@ export function StageOnLoad({
 }
 
 /** A member of a Stage. The default entrance. */
-export function Rise({ children, className = "" }: Common) {
+export function Rise({ children, className = "", style }: Common) {
   return (
-    <motion.div className={className} variants={rise}>
+    <motion.div className={className} style={style} variants={rise}>
       {children}
     </motion.div>
   );
@@ -96,9 +107,9 @@ export function Slide({ children, className = "" }: Common) {
 }
 
 /** A member of a Stage, for media frames. */
-export function Frame({ children, className = "" }: Common) {
+export function Frame({ children, className = "", style }: Common) {
   return (
-    <motion.div className={className} variants={frame}>
+    <motion.div className={className} style={style} variants={frame}>
       {children}
     </motion.div>
   );
@@ -217,8 +228,25 @@ export function RevealWords({
           <span
             key={i}
             aria-hidden
-            className="inline-block overflow-hidden pb-[0.1em] align-bottom"
+            className="inline-block overflow-hidden pr-[0.12em] pb-[0.1em] -mr-[0.12em] align-bottom"
           >
+            {/*
+              THE RIGHT PADDING IS CLEARANCE, NOT SPACING, and the
+              negative margin cancels it back out of the layout.
+
+              Every word sits in its own `overflow-hidden` box so the
+              reveal can slide it up from underneath a mask — the box
+              needs a hard clip on all sides for that to work. But
+              Caveat is cursive: the last glyph of a word routinely
+              draws PAST its own advance width — the tail on a "k", the
+              loop on a "d" — and a box sized to the glyph's metrics
+              rather than its ink clips that overhang. "How we WORK"
+              and "What they SAID" both lost their last letter's
+              flourish to exactly this. `.italic-safe` elsewhere on the
+              site solves the general version of this; it does not
+              reach here because this overflow is per-word and
+              load-bearing for the animation, not a stray leftover.
+            */}
             <motion.span
               className="inline-block"
               variants={{

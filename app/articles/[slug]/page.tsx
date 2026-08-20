@@ -46,7 +46,7 @@ export default async function ArticlePage({
 
           {article.sections.map((s) => (
             <section key={s.heading}>
-              <h2 className="mt-14 font-serif text-3xl font-light">
+              <h2 className="display-m mt-14 text-[clamp(1.5rem,2.1vw,1.875rem)]">
                 {s.heading}
               </h2>
               {s.paragraphs.map((p, i) => (

@@ -1,76 +1,172 @@
 @import "tailwindcss";
 
 /* ===================================================================
-   ONE SUN — token layer
+   NOTE PAPER — token layer
 
-   A light system built from a single directional light: warm sun,
-   warm shade. An earlier version made the shade cool on the theory
-   that outdoor shadow is sky-lit; over a warm ground it read as a blue
-   cast rather than as depth, so shade is now the ground darkening.
+   The sheet is squared paper. Everything on the site is either written
+   on it, ruled onto it, or pinned to it.
 
-   The load-bearing rule: surfaces only ever move *lighter* than the
-   ground. Separation is done by shadow and hairline, never by a darker
-   panel. Nothing in this file may introduce a surface darker than
-   --color-ground.
+   What changed from the graphite system this replaces: the ground is no
+   longer a shaded tone field, it is ruled paper with a real grid; the
+   ink is warmer and lighter; and the hand face is now rationed rather
+   than general-purpose. The drawn-edge machinery (the displacement
+   filters, the hatch bands) is unchanged and still carries every panel
+   — a grid sheet and a wobbled pencil line are the same idea, and the
+   two were built to sit together.
 
-   Contrast, worst case, measured by reading the shader's framebuffer
-   back across every sun position and time offset it can reach:
-     ink    15.13   AAA        ink-2  8.01   AAA
-     ink-3   5.58   AA (1.08 headroom — the binding constraint)
-     accent  7.95   AAA
+   FOUR RULES CARRY THE THEME.
+
+   1. THE PAPER IS RULED, NOT SHADED. Depth used to come from a tone
+      field. It now comes from the grid: two ruled pitches, fine at
+      24px and major at 120px, so the sheet has a measure and anything
+      laid on it reads as laid on something. See
+      components/atmosphere.tsx.
+
+   2. THREE FACES, THREE REGISTERS, NO OVERLAP. Caveat is the voice,
+      Instrument Sans is the document, IBM Plex Mono is the data. The
+      hand face appears at most twice per screen: one statement, and
+      notes in the margin. See the note in app/layout.tsx.
+
+   3. ONE COLOUR. `--color-accent` is a red pencil and it marks indices,
+      measured values and the margin notes. Nothing else on the page is
+      allowed to be a colour. See `.measured`.
+
+   4. NO STRAIGHT LINE IS DRAWN STRAIGHT — inherited, unchanged. Every
+      panel border is a CSS border pushed off its path by an SVG
+      displacement map, on a pseudo-element that draws nothing but the
+      border. See components/sketch-defs.tsx.
+
+   ------------------------------------------------------------------
+   CONTRAST
+
+   Measuring text against ruled paper is not the same problem as
+   measuring it against a tone field, and the honest answer is not the
+   worst pixel.
+
+   A ruling is 1px every 24px. Averaged over any glyph it darkens the
+   sheet by about 0.5%, so the operative background under text is the
+   sheet itself, #F6F2EA. The figures below are measured there, with the
+   worst realistic case — a glyph sitting along a ruled line, #EDE9E1 —
+   in the second column:
+
+                        sheet    on a ruled line
+     ink    #2D2924     12.93    11.92    AAA
+     ink-2  #57514A      7.01     6.47    AAA
+     ink-3  #6E675C      5.01     4.61    AA   <- binding constraint
+     accent #A8492A      5.15     4.75    AA
+
+   Where all four rulings cross — one pixel in every 14,400 — the paper
+   reaches #D1CDC5 and ink-3 falls to 3.52. That is a sub-pixel
+   artefact, not a text background; no glyph sits on it for more than a
+   fraction of its area. It is recorded here so nobody re-measures it
+   and thinks they have found a bug.
+
+   `--color-faint` (#8C8477) is the prototype's label grey and it is
+   BELOW AA at 3.31. It is therefore not a text colour: it is allowed
+   only on marks that repeat information already given in ink — a size
+   stamp inside a mount, a bracket number beside a source. If you are
+   about to set the only copy of something in it, use `--color-ink-3`.
+
+   If you change the paper, the ink, or the ruling opacities, these get
+   re-measured. They are not decorative numbers.
    =================================================================== */
 
 @theme {
-  /* --- surfaces: ground is the floor, everything else rises --- */
-  --color-ground: #faf8f5;
-  --color-surface: #fdfcfa;
-  --color-surface-2: #fefefd;
+  /* --- paper ---
+     Ground is the sheet. Surfaces are cleaner areas of the same sheet,
+     never panels laid on top of it, so they go lighter and never
+     darker. `surface-2` is the screen inside a mount: the one place on
+     the site allowed to be plain white, because a captured interface is
+     not paper. */
+  --color-ground: #f6f2ea;
+  --color-surface: #fbf9f5;
+  --color-surface-2: #ffffff;
+  /* Paper with the red pencil bled into it. The one surface tint on the
+     site, and it marks a panel the accent rule already applies to —
+     never used to make something merely look warmer. */
+  --color-surface-accent: #fdf8f5;
 
-  /* --- ink: warm near-black, never pure ---
-     ink-3 was #6E655C. Darkened to buy contrast headroom so the shader
-     can carry a visible luminance range instead of a 3.5% one that
-     reads as a flat page. 6.08:1 at the shader's lightest, 5.21:1 at
-     its darkest — both clear AA with room. */
-  --color-ink: #17120e;
-  --color-ink-2: #4a423b;
-  --color-ink-3: #625950;
+  /* --- ink ---
+     Warm-neutral, never pure black. `ink` is the written line, `ink-2`
+     is body copy, `ink-3` is the label that steps back without dropping
+     out of contrast. */
+  --color-ink: #2d2924;
+  --color-ink-2: #57514a;
+  --color-ink-3: #6e675c;
 
-  /* --- hairlines: the other half of the depth system --- */
-  --color-hair: #e2dcd4;
-  --color-hair-strong: #d3cabf;
+  /* Decorative grey. NOT A TEXT COLOUR — see the contrast note above. */
+  --color-faint: #8c8477;
+
+  /* --- ruled lines ---
+     `hair` is the line INSIDE a mount — a divider between two parts of
+     one object. `hair-strong` is the line AROUND one, and the rule
+     drawn on the page. Swapping them is what makes a layout read as a
+     spreadsheet. */
+  --color-hair: #e3dccc;
+  --color-hair-strong: #cfc6b4;
 
   /* --- radius ---
-     Panels are softly rounded; controls are pills. The first pass went
-     to 5px, which read as sharp rather than considered. */
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-lg: 16px;
+     Small. The displacement filter supplies the irregularity, so
+     anything above ~10px reads as a rounded rectangle that happens to
+     be shaky rather than as a shape someone drew. */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius: 8px;
+  --radius-lg: 11px;
 
-  /* --- accent: the one colour on the site.
-         Reserved for measured values. See .measured below. --- */
-  --color-accent: #0b4a5c;
-  --color-accent-deep: #073744;
-  --color-accent-lift: #0e5f76;
+  /* --- accent: the one colour ---
+     A red pencil. `lift` is the hover state on marked links, `deep` the
+     pressed one. */
+  --color-accent: #a8492a;
+  --color-accent-deep: #7e3319;
+  --color-accent-lift: #c25a35;
 
-  /* --- type --- */
-  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
-  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  /* --- type ---
+     Three faces, three registers. The reasoning is in app/layout.tsx;
+     what matters here is that `--font-hand` is rationed and the other
+     two are not.
 
-  /* Scale. display-xl : body is 10.5:1 at full width. */
-  --text-display-xl: clamp(3.25rem, 9.5vw, 10.5rem);
-  --text-display-l: clamp(2.25rem, 4.6vw, 4.5rem);
-  --text-display-m: clamp(1.75rem, 2.6vw, 2.5rem);
+     `--font-serif` is kept as an alias so nothing still asking for the
+     old utility falls back to Times. New work uses `font-hand`. */
+  --font-hand: var(--font-caveat), "Segoe Script", ui-rounded, cursive;
+  --font-serif: var(--font-hand);
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Display sizes are CAVEAT sizes, and they run much larger than the
+     numbers a grotesque would want — the face sets about two-thirds as
+     large as its em suggests. `display-l` peaks at 112px, which is the
+     prototype's measured section heading on a 1440px canvas (7.78vw).
+
+     `--text-display-m` is NOT a Caveat size. It is the project-title
+     size and it is set in the document face; see `.display-m`. */
+  --text-display-xl: clamp(3.75rem, 10.4vw, 9.5rem);
+  --text-display-l: clamp(3rem, 7.8vw, 7rem);
+  --text-display-m: clamp(1.75rem, 2.9vw, 2.75rem);
   --text-title: 1.375rem;
+  --text-lede: clamp(1.0625rem, 1.35vw, 1.1875rem);
   --text-body-l: 1.125rem;
+  /* The aside under a summary, and any copy that is commentary on
+     something else rather than the thing itself. One step under body,
+     one step over caption — the gap `--text-caption` alone could not
+     cover once caption stayed at the 13px the rest of the site was
+     measured at. */
+  --text-note: 0.9375rem;
   --text-caption: 0.8125rem;
   --text-micro: 0.6875rem;
 
-  --tracking-display-xl: -0.035em;
-  --tracking-display-l: -0.025em;
-  --tracking-display-m: -0.015em;
-  --tracking-micro: 0.16em;
+  /* Caveat's strokes jam into each other under negative tracking, so
+     the hand sizes sit at or just under zero. The document face takes
+     real negative tracking at title sizes — that is
+     `--tracking-title`. */
+  --tracking-display-xl: -0.012em;
+  --tracking-display-l: -0.01em;
+  --tracking-title: -0.015em;
+  --tracking-micro: 0.18em;
+  /* The wider tracking on an index or a stamp — `01`, `2025 — PILOT`.
+     Wider than `--tracking-micro` because those strings are short and
+     have to read as a row of marks rather than as a word. */
+  --tracking-stamp: 0.16em;
 
   /* --- motion: four curves, all four used --- */
   --ease-exit: cubic-bezier(0.16, 1, 0.3, 1);
@@ -86,138 +182,147 @@
 }
 
 /* ===================================================================
-   The sun
+   The light
 
-   One light vector, published here and read by every shadow on the
-   page. Phase 6 drives --sun-angle from the shared render loop; until
-   then it is parked at its rest value, which is also the permanent
-   value under reduced motion / no WebGL.
+   THERE IS NO `--sun-angle` HERE ANY MORE, AND NOTHING SHOULD PUT ONE
+   BACK. It was a registered custom property (`@property`, inherits:
+   true) that the shader in components/atmosphere.tsx rewrote on :root
+   from inside its render loop as the scroll position changed.
+
+   No rule ever read it. The CSS hatching shades from the fixed
+   `--hatch-angle` below, not from the canvas's light — so the write
+   bought nothing and cost 11.2ms of blocking, whole-document style
+   invalidation every time it fired (measured at 1327 nodes), roughly
+   forty times over a single pass down the page.
+
+   If the light vector is ever genuinely needed in CSS: an inherited
+   registered property on :root is the most expensive possible way to
+   deliver it. Scope it to the one element that reads it, leave it
+   unregistered so it cannot trigger typed re-resolution, and measure
+   the recalc before shipping it.
    =================================================================== */
-@property --sun-angle {
-  syntax: "<angle>";
-  inherits: true;
-  initial-value: 32deg;
-}
 
 :root {
-  --sun-angle: 32deg;
+  /* Hatch pigment as raw channels so alpha can vary per layer. This is
+     `--color-ink-3` written out longhand, because the hatch on the
+     panels and the ruling on the sheet have to be drawn with the same
+     pencil or the seam between them shows. */
+  --graphite: 110 103 92;
 
-  /*
-     Shadow pigments as raw channels so alpha can vary per layer.
+  /* Hatch geometry. The gap is deliberately not a round number: at 4px
+     exactly the strokes moire against the grain overlay on a 1x
+     display. */
+  --hatch-gap: 4.5px;
+  --hatch-angle: 45deg;
 
-     Both are warm now. The ambient was a blue-grey (42 60 92) on the
-     reasoning that outdoor shade is sky-lit and therefore cool — which
-     is true of photographs and wrong for this page: at these alphas
-     over a warm ground it read as a blue cast rather than as shade, and
-     the original brief asked for warm shadows. The ambient is now a
-     deep warm neutral, so depth reads as the ground darkening rather
-     than as a colour shift.
-  */
-  --shadow-warm: 120 78 44;
-  --shadow-ambient: 84 70 56;
+  /* The ceiling on how dark hatching may composite. Lower than the old
+     system's 0.18 because the pigment moved lighter with the palette,
+     and the band would otherwise read heavier than the ruled paper it
+     now sits on. */
+  --hatch-max: 0.16;
 
-  /*
-     Two-part shadow: tight warm contact (bounced light off the ground)
-     over a wider, softer ambient.
+  /* THE RULING.
+     Both pitches and both opacities live here rather than inside
+     components/atmosphere.tsx, so the sheet and anything that wants to
+     line up with it read from one place. The major pitch is an exact
+     multiple of the fine one (120 = 5 x 24) — that is what makes the
+     heavy lines land on top of light ones instead of beating against
+     them. */
+  --rule-pitch-fine: 24px;
+  --rule-pitch-major: 120px;
+  --rule-alpha-fine: 0.045;
+  --rule-alpha-major: 0.055;
+  --rule-ink: 45 41 36;
 
-     SIZED TO THE ELEMENT. The first version used one scale everywhere —
-     a 54px blur at 26px offset — which is right for a large media frame
-     and badly wrong for a 248px rail card, where the shadow footprint
-     approaches the card's own size. Stacked at 0.075 + 0.05 alpha it
-     composited to #EAEAEA and read as a grey panel behind the rail
-     rather than a shadow under it.
+  /* The dashed return arrow on the process sheet. The accent bled almost
+     all the way out into the paper — pale enough not to read as a sixth
+     stage, dark enough to still be a drawn line. It is a token rather
+     than a literal because the dark stock has to answer for it too; see
+     `[data-surface="dark"]` at the bottom of this file. */
+  --loop-stroke: #d3b7a8;
 
-     Rule: blur radius must stay well under the element's short side.
-     Small panels take --shadow-sm. Nothing else.
-  */
-  --shadow-sm:
-    0 1px 1px rgb(var(--shadow-warm) / 0.055),
-    0 1px 2px rgb(var(--shadow-ambient) / 0.05),
-    0 3px 6px rgb(var(--shadow-ambient) / 0.035);
-
-  --shadow-raised:
-    0 1px 1px rgb(var(--shadow-warm) / 0.07),
-    0 2px 4px rgb(var(--shadow-ambient) / 0.055),
-    0 8px 16px rgb(var(--shadow-ambient) / 0.04);
-
-  --shadow-raised-lg:
-    0 1px 2px rgb(var(--shadow-warm) / 0.08),
-    0 6px 12px rgb(var(--shadow-ambient) / 0.065),
-    0 18px 34px rgb(var(--shadow-ambient) / 0.045);
-
-  --shadow-press:
-    0 1px 1px rgb(var(--shadow-warm) / 0.1),
-    0 1px 2px rgb(var(--shadow-ambient) / 0.07);
+  /* The connector arrows on the process sheet (`FlowArrow`, `FlowTurn`).
+     On paper these are `--color-hair-strong` and read fine at that
+     weight against a light ground. On the dark stock the same token
+     drops to a low-alpha ivory and the arrows read as barely-there grey
+     rather than drawn lines, so they get their own token, bumped up
+     under `[data-surface="dark"]` rather than dragging every other
+     hairline on the page up with them. */
+  --flow-stroke: var(--color-hair-strong);
 
   /* Rail gutter — pages reserve this; see components/side-nav.tsx. */
   --rail-width: 16.5rem;
 }
 
 /* ===================================================================
-   Base
+   CASCADE LAYERS — read this before adding a rule below
+
+   Everything from here down lives in `@layer components`, and that is
+   load-bearing rather than tidiness.
+
+   Tailwind v4 declares `@layer theme, base, components, utilities`. An
+   UNLAYERED rule beats every layered rule no matter the specificity, so
+   a bare `.lift { position: relative }` in this file silently defeated
+   `.fixed` at every call site — which is exactly how the header cluster
+   ended up as a full-width bar hanging off the left edge instead of a
+   pill pinned top-right. Same trap for `.display-l`'s font-size, the
+   panel fills, and `.ink-blob`'s transparent background.
+
+   Inside `components`, utilities win. That is the contract every call
+   site already assumed. Add new component classes INSIDE this layer;
+   the only things that belong outside it are `@theme`, `@property`, and
+   the reduced-motion block at the bottom, which needs `!important` to
+   outrank everything.
    =================================================================== */
 
-html {
-  background-color: var(--color-ground);
-  color: var(--color-ink);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  html {
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.65;
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+  }
+
+  /* A highlighter, not a selection block. */
+  ::selection {
+    background: rgb(var(--graphite) / 0.22);
+    color: var(--color-ink);
+  }
+
+  /* Focus.
+
+     Deliberately the one crisp, un-roughened line on the page. A focus
+     ring is a promise about where the keyboard is, and a wobbling
+     promise is a worse promise. Accent at full strength, offset, never
+     shifts layout. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
-body {
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.6;
-  background-color: var(--color-ground);
-  color: var(--color-ink);
-  /* The atmosphere canvas sits behind this; keep the body transparent
-     from Phase 6 onward is NOT safe (host ground bleeds through on
-     paint), so the ground stays painted here and the canvas layers
-     over it at low alpha. */
-}
+@layer components {
 
-::selection {
-  background: var(--color-accent);
-  color: var(--color-surface-2);
-}
-
-/* ===================================================================
-   Focus — designed, not defaulted.
-
-   The audit found 23 interactive elements and zero focus styles. This
-   is the single ring every one of them uses. It is the accent at full
-   strength, offset so it reads as a drawn rule rather than a border,
-   and it never shifts layout.
-   =================================================================== */
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
-  border-radius: 3px;
-}
-
-/* On the inked (dark) surfaces — primary buttons, active nav rows —
-   the accent ring would disappear into the fill, so it inverts. */
 .on-ink:focus-visible {
   outline-color: var(--color-surface-2);
   outline-offset: 2px;
 }
 
-/* Never show the ring for pointer users. */
-:focus:not(:focus-visible) {
-  outline: none;
-}
-
 /* ===================================================================
-   Custom cursor
-
-   The class is added by components/cursor.tsx only once it has actually
-   mounted, and only on fine pointers — so touch, no-JS and coarse
-   pointers keep the native cursor rather than losing it to a rule that
-   assumed JS ran.
-
-   Text inputs and disabled controls keep their native cursor
-   regardless: the reticle hides over them, and a hidden custom cursor
-   plus `cursor: none` would leave nothing at all.
+   Custom cursor — see components/cursor.tsx
    =================================================================== */
 .has-custom-cursor,
 .has-custom-cursor a,
@@ -238,34 +343,116 @@ body {
 
 /* ===================================================================
    Type helpers
+
+   These five classes ARE the three-register rule from the top of this
+   file, written as code. Read them together:
+
+     .display-xl  .display-l   the hand.      A statement.
+     .hand                     the hand.      A note in the margin.
+     .display-m   .lede        the document.  Structure and copy.
+     .micro       .measured    the data.      Readings, not sentences.
+
+   `.display-m` being set in the DOCUMENT face is the load-bearing part
+   and it is deliberately not what its name suggests. It is the third
+   step of a display scale whose first two steps are handwritten, and it
+   is where the hand stops. Setting a project title in Caveat is the one
+   change that would collapse the whole system, because at that point
+   the hand is just the heading font and rule 2 means nothing.
    =================================================================== */
 
+/*
+ * THE STATEMENT — one per screen.
+ *
+ * `font-weight: 600` rather than the variable default: at 400 Caveat's
+ * stroke is thinner than the body copy underneath it, which inverts the
+ * hierarchy at exactly the size where it matters most.
+ *
+ * `line-height: 1` on a hand face with ascenders and descenders this
+ * long clips the loops against each other on a two-line statement. The
+ * prototype sets 0.95 at 112px on a single line; anything that wraps
+ * needs the room, so these run slightly looser than the numbers a
+ * grotesque would take at the same size.
+ */
 .display-xl {
-  font-family: var(--font-serif);
+  font-family: var(--font-hand);
   font-size: var(--text-display-xl);
-  line-height: 0.94;
+  line-height: 0.92;
   letter-spacing: var(--tracking-display-xl);
-  font-weight: 300;
+  font-weight: 600;
   text-wrap: balance;
 }
 
 .display-l {
-  font-family: var(--font-serif);
+  font-family: var(--font-hand);
   font-size: var(--text-display-l);
-  line-height: 1.04;
+  line-height: 0.95;
   letter-spacing: var(--tracking-display-l);
-  font-weight: 300;
-  text-wrap: balance;
+  font-weight: 600;
+  text-wrap: pretty;
 }
 
+/*
+ * THE TITLE — document face, and this is where the hand stops.
+ *
+ * Weight 500, not 600: the prototype's project titles sit a single step
+ * above body copy, and the size is already carrying the hierarchy. A
+ * heavier weight here starts competing with the statement above it.
+ */
 .display-m {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-display-m);
   line-height: 1.12;
-  letter-spacing: var(--tracking-display-m);
-  font-weight: 300;
+  letter-spacing: var(--tracking-title);
+  font-weight: 500;
+  text-wrap: pretty;
 }
 
+/*
+ * A NOTE IN THE MARGIN.
+ *
+ * The hand face's second and last job. It is an aside — the sentence
+ * someone wrote next to the drawing after the drawing was finished —
+ * so it is small, it is in the accent, and it never sits in the
+ * measure with the body copy. Call sites hang it off an edge, usually
+ * with a short lead rule pointing back at what it is about.
+ *
+ * IF THIS IS RUNNING MORE THAN ABOUT TWELVE WORDS it is not a note any
+ * more, and it belongs in the document face.
+ */
+.hand {
+  font-family: var(--font-hand);
+  font-weight: 500;
+  font-size: 1.375rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+  color: var(--color-accent);
+}
+
+/*
+ * The paragraph directly under a statement.
+ *
+ * Replaces the `font-serif text-2xl font-light` pattern the old body
+ * face used for this, which does not survive the swap: Instrument Sans
+ * has no weight below 400, so lightness is no longer available as a way
+ * to step down. Size and colour do it instead, which is the more
+ * robust version anyway.
+ */
+.lede {
+  font-size: var(--text-lede);
+  line-height: 1.6;
+  color: var(--color-ink-2);
+  text-wrap: pretty;
+}
+
+/*
+ * The data face, small and tracked. Labels, indices, stamps.
+ *
+ * `--color-ink-3`, NOT the prototype's #8C8477. That grey is 3.31
+ * against the sheet and these labels are 11px — the one place on the
+ * page where the contrast floor genuinely binds. See the contrast note
+ * at the top of this file, and `--color-faint` for where #8C8477 is
+ * still allowed.
+ */
 .micro {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
@@ -275,37 +462,42 @@ body {
 }
 
 /*
- * THE ONE TYPE RULE
+ * A stamp: a short row of marks rather than a word. Project indices,
+ * year-and-status lines, the size written on a mount. Wider tracking
+ * than `.micro` and no colour of its own, so the call site can put it
+ * in ink, accent or faint depending on whether it is information or
+ * repetition.
+ */
+.stamp {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-stamp);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * THE ONE TYPE RULE — unchanged in substance from the previous system.
  * Anything measured is set in the data face and inked in the accent.
  * Applying this class to something that is not a measured value is a
- * bug — it is the only place colour is allowed on this site.
+ * bug. It is the only place colour is allowed on this site, alongside
+ * `.hand`.
  */
 .measured {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--color-accent);
-  font-feature-settings: "ss01";
 }
 
-/*
- * Italic serif overflows its inline box, and background-clip / overflow
- * then cut the tail of the glyph. The audit caught this clipping the
- * hero's accent word by 13.4px at 800px wide (~24px at desktop). Any
- * italic display run gets this.
- */
+/* Kept for call sites: the hand face has generous side bearings and no
+   longer overflows its inline box, so this is now a no-op guard rather
+   than a fix. */
 .italic-safe {
   display: inline-block;
-  padding-right: 0.14em;
-  margin-right: -0.06em;
 }
 
 /* ===================================================================
    Typewriter caret
-
-   Two states: a hard square-wave blink while typing (a caret that eases
-   reads as a glow, not a cursor), and a slow fade to nothing once the
-   line lands, so the headline is left clean rather than pulsing at the
-   reader forever.
    =================================================================== */
 @keyframes caret-blink {
   0%,
@@ -319,9 +511,7 @@ body {
 }
 
 @keyframes caret-rest {
-  0% {
-    opacity: 1;
-  }
+  0%,
   70% {
     opacity: 1;
   }
@@ -346,86 +536,630 @@ body {
 }
 
 /* ===================================================================
-   Depth utilities — the only sanctioned way to raise a surface
+   DRAWN SURFACES
+
+   The class names are inherited from the previous system on purpose.
+   They mean "a surface raised off the page", which is still true — only
+   the technique changed, from blur to line and hatch. Keeping the names
+   meant this theme swap touched the stylesheet instead of every call
+   site.
+
+   Anatomy of all three:
+     ::before   the drawn edge. Border only. Carries the filter.
+     ::after    the hatch that reads as its shadow. Offset toward the
+                lower right, sitting at negative z-index so the panel's
+                own fill hides the overlap and only the band shows.
    =================================================================== */
 
-/* Small panels — rail cards, chips. Tight shadow, drawn edge. */
-.lift-sm {
+.lift-sm,
+.lift,
+.lift-lg {
+  position: relative;
   background-color: var(--color-surface);
-  border: 1px solid var(--color-hair);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
 }
 
-.lift {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-hair);
-  box-shadow: var(--shadow-raised);
+/* Only the small tier carries a default radius, matching the system
+   this replaced. `.lift` and `.lift-lg` take theirs from the call site —
+   the header cluster is a full pill, the media plates are 8px — and a
+   radius set here would win against the utility that sets it there. */
+.lift-sm {
+  border-radius: var(--radius);
 }
 
 .lift-lg {
   background-color: var(--color-surface-2);
-  border: 1px solid var(--color-hair);
-  box-shadow: var(--shadow-raised-lg);
+}
+
+.lift-sm::before,
+.lift::before,
+.lift-lg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.3px solid var(--color-hair-strong);
+  pointer-events: none;
+}
+
+/* Wavelength is matched to the element: a small card wants a tight
+   scribble, a full-width plate wants one long slow kink. */
+.lift-sm::before {
+  filter: url(#sk-rough-2);
+}
+.lift::before {
+  filter: url(#sk-rough-3);
+}
+.lift-lg::before {
+  border-width: 1.6px;
+  border-color: var(--color-ink-3);
+  filter: url(#sk-rough-3);
+}
+
+.lift-sm::after,
+.lift::after,
+.lift-lg::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: repeating-linear-gradient(
+    var(--hatch-angle),
+    rgb(var(--graphite) / 0.9) 0 1px,
+    transparent 1px var(--hatch-gap)
+  );
+  opacity: var(--hatch-max);
+  filter: url(#sk-rough-4);
+  pointer-events: none;
+}
+
+/* The band. Insets are asymmetric because the light is upper-left: the
+   hatch starts inside the panel on the lit sides and runs past it on
+   the shaded ones. */
+.lift-sm::after {
+  inset: 5px -6px -6px 5px;
+}
+.lift::after {
+  inset: 8px -10px -10px 8px;
+}
+.lift-lg::after {
+  inset: 10px -13px -13px 10px;
 }
 
 /*
- * Interactive raise.
+ * A shape drawn in solid graphite — primary buttons, active nav rows,
+ * name chips.
  *
- * `box-shadow` is a paint property, so transitioning it violates the
- * transform-and-opacity-only rule this project runs on. Instead the
- * deeper shadow lives on a pseudo-element that cross-fades: the base
- * shadow is static, the lifted one fades in over it, and the only
- * animated properties are opacity and transform.
+ * The fill lives on a pseudo-element rather than on the element itself
+ * so the label is never at risk of being displaced by anything applied
+ * to the silhouette — see the note on `.ink-outline` below for why the
+ * silhouette itself is no longer one of those things.
  *
- * The pseudo-element is inset:0 with the parent's radius and sits
- * behind content on its own layer, so it never intercepts a pointer.
+ * Call sites drop `bg-ink` and add this; the text colour stays.
+ *
+ * `z-index: 0` is not decoration. The fill sits at `z-index: -1`, and a
+ * negative-z child escapes to the nearest ANCESTOR that forms a
+ * stacking context — so inside a `.lift-sm` panel the blob was painting
+ * behind the panel's own fill, leaving the near-white label on
+ * near-white paper. That is why the two names in the rail were blank.
+ * Giving `.ink-blob` its own stacking context traps the fill: it still
+ * paints under the label, but never under the panel.
  */
-.lift-interactive {
+.ink-blob {
   position: relative;
-  box-shadow: var(--shadow-raised);
+  z-index: 0;
+  background-color: transparent;
 }
 
-.lift-interactive::after {
+.ink-blob::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  box-shadow: var(--shadow-raised-lg);
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-exit);
+  background-color: var(--color-ink);
+  pointer-events: none;
+}
+
+/*
+ * Same shape, drawn as an outline instead of a fill.
+ *
+ * NO ROUGHENING FILTER, ON EITHER THIS OR `.ink-blob` ABOVE — unlike
+ * every other drawn edge on the site. Panels are paper, and paper is
+ * hand-shaded; buttons, tags and icon controls are the precise things
+ * sitting on top of it; a pencil wobble on a hit target reads as
+ * misregistration rather than as a drawing. Keeping these two crisp is
+ * what makes the roughening everywhere else read as intentional.
+ */
+.ink-outline {
+  position: relative;
+}
+
+.ink-outline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.3px solid var(--color-hair-strong);
+  transition: border-color var(--duration-instant);
+  pointer-events: none;
+}
+
+/* Form fields wrap their input in this, so the drawn edge has to answer
+   for the field's focus state as well as its own hover. */
+.ink-outline:hover::before,
+.ink-outline:focus-within::before {
+  border-color: var(--color-ink-3);
+}
+
+/*
+ * Interactive raise.
+ *
+ * Under the old blur system this cross-faded two shadows. Hatching
+ * cannot cross-fade — two overlapping stroke fields moire — so the
+ * gesture is now the one a hand would make: the hatch band slides
+ * further out and gains density, as though the object moved and the
+ * shading was redrawn beneath it. Opacity and transform only, so the
+ * transform-only rule this project runs on still holds.
+ */
+.lift-interactive {
+  position: relative;
+}
+
+.lift-interactive::after {
+  content: "";
+  position: absolute;
+  inset: 4px -5px -5px 4px;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: repeating-linear-gradient(
+    var(--hatch-angle),
+    rgb(var(--graphite) / 0.9) 0 1px,
+    transparent 1px var(--hatch-gap)
+  );
+  opacity: calc(var(--hatch-max) * 0.85);
+  filter: url(#sk-rough-4);
+  transition:
+    opacity var(--duration-base) var(--ease-exit),
+    transform var(--duration-base) var(--ease-exit);
   pointer-events: none;
 }
 
 .lift-interactive:hover::after,
 .lift-interactive:focus-visible::after {
-  opacity: 1;
+  opacity: calc(var(--hatch-max) * 1.5);
+  transform: translate(3px, 3px);
 }
 
 .lift-interactive:active::after {
-  opacity: 0;
+  opacity: calc(var(--hatch-max) * 0.5);
+  transform: translate(0, 0);
 }
 
 /* ===================================================================
-   Grain — dither.
+   THE MOUNT — a screen pinned to the page
 
-   Near-white gradients band badly on 8-bit displays. This is the
-   dither that stops it, and it doubles as the paper texture. Phase 6
-   moves the primary grain into the shader and keeps this as the
-   fallback layer.
+   The prototype's device for showing an interface, and the reason the
+   Selected Work section reads as a sheet with work laid on it rather
+   than as a grid of cards.
+
+   Three things make it, and all three are doing a job:
+
+   1. AN ASYMMETRIC RADIUS on both axes —
+      `14px 9px 15px 8px / 9px 15px 8px 14px`. Every corner is a
+      different ellipse, so the rectangle is subtly out of true in the
+      way a shape drawn freehand around a photograph is. This is the
+      cheapest hand-drawn effect on the site: no filter, no repaint
+      cost, and it survives at any size.
+
+      The four corner values are per-mount custom properties rather than
+      literals, so a run of mounts down a page is never the same shape
+      twice. See components/screen-mount.tsx, which deals them out.
+
+   2. A HARD OFFSET SHADOW, no blur. Blur is a camera artefact; a sheet
+      of paper resting on another sheet casts an edge, not a gradient.
+      Down and to the right, because the light on this site comes from
+      the upper left.
+
+      This is the one surface that does NOT take the `.lift` hatch
+      band. A mount already carries a drawn border and an offset — a
+      hatch under it as well reads as two shadows from two different
+      lights.
+
+   3. A LABEL ROW ACROSS THE TOP, in the data face. What the screen is,
+      left; how big it is, right. It is the caption a contact sheet
+      would have, and it is what makes an empty mount read as reserved
+      rather than as broken.
    =================================================================== */
+.mount {
+  position: relative;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-ink);
+  border-radius:
+    var(--mount-r1, 14px) var(--mount-r2, 9px) var(--mount-r3, 15px)
+    var(--mount-r4, 8px) /
+    var(--mount-r2, 9px) var(--mount-r3, 15px) var(--mount-r4, 8px)
+    var(--mount-r1, 14px);
+  box-shadow: 3px 4px 0 rgb(var(--rule-ink) / 0.06);
+}
+
+/*
+ * The screen inside the mount.
+ *
+ * White, and the ONLY white on the site — a captured interface is not
+ * paper and pretending otherwise makes every screenshot look like it
+ * failed to load. The inner radius is a plain small one: the hand drew
+ * the mount, the screen is a rectangle that was cut.
+ */
+/*
+ * A mount that is ruled inside as well as out.
+ *
+ * For a panel that IS paper rather than one holding a picture of a
+ * screen — the learning core in "What we build". The pitch is 16px
+ * against the sheet's 24px, and the difference is the point: the panel
+ * is a smaller sheet, squared finer, laid on the big one. Matching the
+ * two pitches would make the panel look like a hole cut in the page.
+ */
+.mount-ruled {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgb(var(--rule-ink) / 0.05) 0 1px,
+      transparent 1px 16px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgb(var(--rule-ink) / 0.05) 0 1px,
+      transparent 1px 16px
+    );
+}
+
+.mount-screen {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-hair);
+  background-color: var(--color-surface-2);
+}
+
+/*
+ * The stand-in for a screen that has not been captured yet.
+ *
+ * Deliberately not a grey box with a spinner in it. It is a ruled area
+ * with the frame's own construction marks on it, holding a stated size
+ * — the same logic as `PlaceholderMedia`, at the smaller scale a screen
+ * needs. `aspect-ratio` comes in from the call site because it is data:
+ * a phone is 390x844 and a desktop capture is 16:9, and those are
+ * facts about the thing being photographed rather than style.
+ */
+.mount-shot {
+  aspect-ratio: var(--shot-ratio, 16 / 9);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgb(var(--rule-ink) / var(--rule-alpha-fine)) 0 1px,
+      transparent 1px var(--rule-pitch-fine)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgb(var(--rule-ink) / var(--rule-alpha-fine)) 0 1px,
+      transparent 1px var(--rule-pitch-fine)
+    );
+}
+
+/* ===================================================================
+   Ruled marks on the page
+
+   The prototype's punctuation. A rule under a statement is a fixed
+   length rather than full-bleed — it is a mark someone drew to close
+   the line, not a divider between two things.
+   =================================================================== */
+
+/*
+ * The stub rule under a section statement. 240px in the prototype,
+ * which is roughly the width of the statement's first word at 112px —
+ * short enough to read as a mark and long enough not to look like a
+ * hyphen.
+ */
+.rule-stub {
+  display: block;
+  width: min(15rem, 40%);
+  height: 1px;
+  border: 0;
+  background-color: var(--color-hair-strong);
+  filter: url(#sk-rule-h);
+}
+
+/*
+ * The lead line that points from a margin note back at the thing it is
+ * about. Always horizontal, always short; the note supplies the
+ * direction by which side of the line it sits on.
+ */
+.lead-line {
+  display: block;
+  width: 2.875rem;
+  height: 1px;
+  flex: none;
+  background-color: var(--color-hair-strong);
+  filter: url(#sk-rule-h);
+}
+
+/*
+ * "View case study" — the one link style in the work section.
+ *
+ * A data-face label over a rule tinted toward the accent, rather than
+ * an underlined word. It reads as a tab on a folder: the label names
+ * what is inside and the rule is the edge you would lift.
+ *
+ * The rule darkens to the full accent on hover rather than the text
+ * moving, because these sit in a column of stamps and a link that
+ * shifts drags the whole column with it.
+ */
+.tab-link {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-stamp);
+  text-transform: uppercase;
+  color: var(--color-ink);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
+  padding-bottom: 3px;
+  transition:
+    border-color var(--duration-quick) var(--ease-exit),
+    color var(--duration-quick) var(--ease-exit);
+}
+
+.tab-link:hover,
+.tab-link:focus-visible {
+  color: var(--color-accent-deep);
+  border-bottom-color: var(--color-accent);
+}
+
+/* ===================================================================
+   Drawn marks
+
+   The site's punctuation. Each one is a straight CSS shape put through
+   a displacement filter, which is why there are no image assets here.
+   =================================================================== */
+
+/* A ruled line, drawn by hand. Replaces border-t on section rules. */
+.rule-hand {
+  position: relative;
+  border: 0 !important;
+}
+
+/* `sk-rule-h`, not `sk-rough-3`. This box is 0 tall plus a 1.3px
+   border, so a filter region quoted as a percentage of it is ~1.6px and
+   clips the displaced line straight back to true — the rule rendered
+   mechanically straight while still paying for the turbulence. The
+   hairline filters inflate the region on the thin axis. See
+   components/sketch-defs.tsx. */
+.rule-hand::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1.3px solid var(--color-hair-strong);
+  filter: url(#sk-rule-h);
+  pointer-events: none;
+}
+
+/*
+ * Underline swipe — the hover mark on links and card titles.
+ *
+ * Scales from the left like the old rule did, but it is a pencil
+ * stroke: thicker, softened at the ends, and sitting slightly low the
+ * way an underline drawn in one pass does.
+ */
+.swipe {
+  position: absolute;
+  inset-inline: -0.12em;
+  bottom: -0.16em;
+  height: 0.13em;
+  max-height: 4px;
+  transform-origin: left center;
+  transform: scaleX(0);
+  border-radius: 2px;
+  background-color: currentColor;
+  opacity: 0.55;
+  filter: url(#sk-rough-1);
+  transition: transform var(--duration-base) var(--ease-exit);
+  pointer-events: none;
+}
+
+.group:hover .swipe {
+  transform: scaleX(1);
+}
+
+/*
+ * The lasso — a drawn loop around the current nav row.
+ *
+ * A filled pill for "you are here" is a UI convention; a circled item
+ * is what a person does to a list on paper, and this theme should use
+ * the second one.
+ */
+.lasso {
+  position: relative;
+}
+
+/* Pulled in from `-2px -5px`. The loop is drawn by a displacement
+   filter that throws the line a further ~2.8px off its path, so a 5px
+   reach put the far side of the lasso through the rail card's own
+   border. The row now reserves that space as padding instead. */
+.lasso::before {
+  content: "";
+  position: absolute;
+  inset: -1px -3px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-accent);
+  filter: url(#sk-rough-1);
+  pointer-events: none;
+}
+
+/* ===================================================================
+   THE DECK — two portraits, dealt
+
+   See components/portrait-deck.tsx. At rest the pair sits as a squared-
+   up stack, tilted and overlapping the way two photographs left on a
+   desk do. Hovering the deck fans them apart and brings up each card's
+   caption.
+
+   The geometry is per-card and comes in as custom properties from the
+   component; the STATE lives here, because a hover cannot be expressed
+   in an inline style. Interpolating the properties rather than swapping
+   whole transforms means one declaration animates both states and the
+   two cards stay in step.
+
+   Rest and open values are separate properties rather than one being
+   derived, so a card can travel a different distance than it rotates —
+   which is what stops the fan from looking like a rigid hinge.
+   =================================================================== */
+.deck-card {
+  --x: var(--rest-x);
+  --y: var(--rest-y);
+  --r: var(--rest-r);
+  transform: translate(var(--x), var(--y)) rotate(var(--r));
+  transition: transform var(--duration-slow) var(--ease-exit);
+}
+
+.deck:hover .deck-card,
+.deck:focus-within .deck-card {
+  --x: var(--open-x);
+  --y: var(--open-y);
+  --r: var(--open-r);
+}
+
+/* Whichever card is under the pointer comes to the top of the pile and
+   lifts a little further out of it. */
+.deck-card:hover,
+.deck-card:focus-within {
+  z-index: 2;
+  --y: calc(var(--open-y) - 10px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No fan — the pair simply sits open. */
+  .deck-card {
+    --x: var(--open-x);
+    --y: var(--open-y);
+    --r: var(--open-r);
+  }
+}
+
+/*
+ * Plate proportion, per breakpoint.
+ *
+ * A 4:3 plate is 75% of the column tall. On a desktop that is a picture
+ * in a layout; on a 345px phone column it is 259px of one image, and
+ * three of them in a row is most of a scroll spent on placeholders. The
+ * plate therefore gets to be a banner on a phone and a picture on a
+ * desktop — which is what an editorial page does anyway, and is not the
+ * same thing as shrinking the desktop composition.
+ *
+ * Driven by custom properties set inline at the call site rather than by
+ * two Tailwind classes, because the ratio is data (it comes from the
+ * content layer) and Tailwind only generates arbitrary values it can
+ * find as literal strings in source.
+ */
+.plate {
+  aspect-ratio: var(--plate-ratio-sm, var(--plate-ratio));
+}
+
+@media (min-width: 768px) {
+  .plate {
+    aspect-ratio: var(--plate-ratio);
+  }
+}
+
+/* A field of hatching, for anything that wants tone rather than fill. */
+.hatch {
+  background-image: repeating-linear-gradient(
+    var(--hatch-angle),
+    rgb(var(--graphite) / 0.9) 0 1px,
+    transparent 1px var(--hatch-gap)
+  );
+  opacity: var(--hatch-max);
+}
+
+/*
+ * A photograph, rendered as graphite.
+ *
+ * `multiply` is doing the real work: the filter removes colour and
+ * steepens the curve, and the blend mode makes the result subtract
+ * light from the paper rather than sit on top of it as a grey
+ * rectangle. Together they mean an image can never be brighter than
+ * the sheet, which is rule 3.
+ *
+ * NATIVE FILTER, NOT `url(#sk-graphite)`. The SVG version ran
+ * feColorMatrix + feComponentTransfer through the SVG filter pipeline
+ * on a full-size bitmap, and it re-rasterised on every frame the image
+ * moved — which, wrapped in a parallax, was every frame of every
+ * scroll. `grayscale`/`contrast`/`brightness` are GPU shader ops and
+ * match the old tone curve closely enough that the difference is not
+ * visible at any size the site uses.
+ */
+.graphite-image {
+  filter: grayscale(1) contrast(1.28) brightness(0.9);
+  mix-blend-mode: multiply;
+}
+
+/* ===================================================================
+   Paper
+
+   Two layers. Tooth is a fine high-frequency noise that lives under the
+   content and gives every flat area something to catch on; grain is the
+   coarser dither that stops the hatch field banding. The old system ran
+   one layer at 0.3 purely as a dither — this one is carrying visible
+   texture, so it is stronger and split in two.
+   =================================================================== */
+/*
+ * NO `mix-blend-mode` HERE. This was the single most expensive
+ * declaration on the site.
+ *
+ * A full-viewport blended layer at the top of the page makes the whole
+ * document its backdrop, which forces the browser to keep the entire
+ * viewport rasterised as one group and re-composite all of it whenever
+ * anything underneath changes — and every re-composite re-runs every
+ * `filter: url(#…)` drawn edge in view. That is where the lag came
+ * from, and it is why it got worse the more drawn panels were on
+ * screen.
+ *
+ * THE BACKGROUND CANVAS BEING GONE DOES NOT MAKE THIS SAFE AGAIN. It
+ * was the worst offender — a WebGL surface repainting continuously
+ * under the blend, so the whole page re-composited every frame — but it
+ * was never the only thing underneath that moves. Scroll reveals,
+ * parallax, hover raises and the cursor all still change pixels under
+ * this layer. Restoring `mix-blend-mode` here re-groups the viewport
+ * and hands every one of them the same whole-page cost.
+ *
+ * Normal compositing over near-white paper is visually the same
+ * texture; the opacity is retuned because multiply and normal do not
+ * carry alpha the same way. `numOctaves` is 3 rather than 5 — octaves
+ * 4 and 5 of a 0.62 base frequency are sub-pixel and were being
+ * generated only to be thrown away.
+ */
+/*
+ * 0.18, DOWN FROM 0.3, and the reason is the ruling rather than taste.
+ *
+ * The old value was tuned against a shaded tone field with no structure
+ * in it, where the tooth was the only thing giving a flat area
+ * something to catch on. The sheet now has a real grid, and the grid IS
+ * that structure — at 0.3 the noise sits at roughly twice the per-pixel
+ * strength of a ruled line and softens the one feature the paper is
+ * built around.
+ *
+ * It is still doing its other job: dithering the hatch bands under the
+ * panels, which band visibly without it. If you want more or less
+ * paper, this is the knob — but check it against a 120px ruling
+ * intersection, not against a blank area, because that is where the two
+ * layers actually compete.
+ */
 .grain {
   position: fixed;
   inset: 0;
   z-index: 90;
   pointer-events: none;
-  /* Pulled back from 0.42 now that the sky carries real structure of
-     its own — the grain is here to break up banding and add tooth, not
-     to be the texture. */
-  opacity: 0.3;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.3'/%3E%3C/svg%3E");
+  opacity: 0.18;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.3'/%3E%3C/svg%3E");
 }
 
 /* ===================================================================
@@ -442,7 +1176,6 @@ html.lenis body {
   overflow: hidden;
 }
 
-/* Scrollable without a visible bar — the rail's menu on short viewports. */
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -452,11 +1185,328 @@ html.lenis body {
 }
 
 /* ===================================================================
+   THE FLOW SHEET — "How we work"
+
+   Five stage cards with drawn arrows between them, laid out the way a
+   process is sketched on paper: left to right, then a turn, then right
+   to left, then a dashed return to the start. It is a boustrophedon,
+   and the point of it is that the sequence LOOPS — a timeline running
+   straight down the page can only end, which is the wrong claim about
+   an engagement that keeps going after launch.
+
+   THE LAYOUT IS GRID AREAS, NOT UTILITIES, and it has to be. The
+   arrangement changes shape twice, and at each width a given card moves
+   to a different cell AND the arrow pointing at it rotates to match.
+   That is one decision expressed in two properties, so the two belong
+   in the same rule; split across Tailwind breakpoint variants on eleven
+   separate elements it would drift the first time anyone touched it.
+
+   The breakpoints are 720px and 1080px — the widths at which the
+   three-across and five-across rows stop fitting, not the framework's
+   md/lg. Below 720 everything stacks and every arrow points down.
+
+   Cell names:
+     s1..s5   the stage cards
+     a12 a23  the arrows between 01-02 and 02-03
+     a45      the arrow from 05 back to 04 (drawn pointing LEFT)
+     turn     the long descending curve after 03
+     ann      the hand-written note beside the turn
+     loop     the dashed return, plus its caption
+   =================================================================== */
+.flow-sheet {
+  display: grid;
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: auto;
+  grid-template-areas:
+    "s1" "a12" "s2" "a23" "s3" "ann" "turn" "s4" "a45" "s5" "loop";
+}
+
+/* Stacked: every connector turns to point down the column. `a45` is
+   drawn pointing left, so it needs the opposite quarter turn and a flip
+   to keep its arrowhead at the leading end. */
+.flow-sheet .flow-arrow,
+.flow-sheet .flow-arrow-b {
+  transform: rotate(90deg);
+  height: 70px;
+}
+.flow-sheet .flow-arrow-back {
+  transform: rotate(-90deg) scaleX(-1);
+  height: 70px;
+}
+.flow-sheet .flow-turn {
+  justify-content: center;
+  padding: 6px 0;
+}
+.flow-sheet .flow-note {
+  justify-content: flex-start;
+  padding: 10px 0 4px;
+}
+.flow-sheet .flow-loop-arrow {
+  transform: scaleY(-1);
+}
+
+@media (min-width: 720px) {
+  .flow-sheet {
+    grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr);
+    grid-template-rows: auto 92px auto 76px auto;
+    grid-template-areas:
+      "s1  a12  s2"
+      "ann ann  turn"
+      "s4  a45  s3"
+      "a23 .    ."
+      "s5  loop loop";
+  }
+  .flow-sheet .flow-arrow,
+  .flow-sheet .flow-arrow-back,
+  .flow-sheet .flow-loop-arrow {
+    transform: none;
+    height: auto;
+  }
+  /* 02 sits above 03 in this arrangement, so the arrow between them is
+     the one that has to turn. */
+  .flow-sheet .flow-arrow-b {
+    transform: rotate(90deg);
+    height: 70px;
+  }
+  .flow-sheet .flow-turn {
+    justify-content: center;
+    padding: 0;
+  }
+  /* The note spans the first two columns here rather than sitting in
+     the 76px arrow gutter the prototype put it in. Nine words do not
+     set in 76px — they set as a nine-line ribbon — and a note that has
+     to be deciphered is not doing the job a note is for. */
+  .flow-sheet .flow-note {
+    justify-content: flex-start;
+    align-items: flex-end;
+    padding: 0 0 8px;
+  }
+}
+
+@media (min-width: 1080px) {
+  .flow-sheet {
+    grid-template-columns:
+      minmax(0, 1fr) 86px minmax(0, 1fr) 86px minmax(0, 1fr);
+    grid-template-rows: auto 104px auto;
+    grid-template-areas:
+      "s1   a12  s2  a23  s3"
+      ".    ann  ann turn turn"
+      "loop loop s5  a45  s4";
+  }
+  .flow-sheet .flow-arrow-b {
+    transform: none;
+    height: auto;
+  }
+  .flow-sheet .flow-turn {
+    justify-content: flex-end;
+    padding-right: 34px;
+  }
+  .flow-sheet .flow-note {
+    justify-content: flex-end;
+    padding-right: 18px;
+  }
+}
+
+
+/* ===================================================================
+   DARK STOCK - the same notebook, printed on charcoal
+
+   ONE FRAME USES THIS: "How we work". Nothing about that sheet is
+   redesigned - same grid, same copy, same spacing, same hand face, same
+   drawn borders, same hairline arrows. Only the stock changed colour.
+
+   HOW IT IS BUILT, AND WHY IT IS BUILT THAT WAY
+
+   The dark ground is NOT a background on the section. The sheet in
+   components/atmosphere.tsx is `position: fixed` - paper does not
+   scroll, the writing on it does - so a ground painted on a scrolling
+   section would carry its own ruling down the page and beat against the
+   fixed one at every seam. The dark ground is therefore a second fixed
+   layer, translated to sit over the section's viewport band, with its
+   ruling on a counter-translated child so the two grids stay in exact
+   register. See components/dark-sheet.tsx. Both moves are transforms:
+   that layer sits under ~200 elements carrying `filter: url(#sk-rough-*)`
+   and it may not repaint. That constraint is not negotiable - read the
+   header of atmosphere.tsx before touching it.
+
+   Everything below is a TOKEN SWAP on `[data-surface="dark"]`. No call
+   site in app/page.tsx changes: `text-ink-2` is still `text-ink-2`, it
+   just resolves to warm grey instead of warm brown. That is the whole
+   point of the attribute - a frame can be re-stocked without any of its
+   markup learning that it has been.
+
+   The rail is the awkward part. It is `position: fixed`, so it is over
+   the dark band for part of a scroll and over the paper for the rest,
+   and at the seam it is over BOTH. It is therefore drawn twice - once
+   light, once dark - with the dark copy clip-pathed to exactly the band
+   it overlaps, updated per frame from the same measurement that drives
+   the band. See components/side-nav.tsx and components/app-shell.tsx.
+
+   ------------------------------------------------------------------
+   CONTRAST, re-measured against the dark stock
+
+   Same method as the table at the top of this file: the operative
+   background under text is the SHEET (#262420), with the worst
+   realistic case - a glyph lying along a white ruling at 4.5%,
+   #302E2A - in the second column.
+
+                          sheet    on a ruled line
+     ink    #F4F0E7       13.17    12.06    AAA
+     ink-2  #D4CFC3        9.97     8.72    AAA
+     faint  #C6C0B3        8.55     7.48    AAA
+     ink-3  #BAB3A5        7.44     6.50    AAA
+     accent #D98A5F        5.53     5.00    AA   <- binding constraint
+
+   ink-2/ink-3/faint were raised from the first pass (#C4BDAF/#A8A093/
+   #B4ADA0) once it shipped: at those values the rail's secondary text —
+   the blurb, "Backed by Lawvriksh", the email — read as a flat grey
+   against the charcoal rather than as ivory ink dimmed a step, and the
+   effect got worse the smaller the text got. All three are lighter now
+   and every one of them clears AAA rather than sitting at the AA line.
+
+   NOTE THAT `--color-faint` IS A TEXT COLOUR HERE and it is not one on
+   the paper theme. On the sheet #8C8477 sits at 3.31 and is banned from
+   carrying the only copy of anything; on the dark stock #C6C0B3 clears
+   AAA, so `.stamp text-faint` in this frame is honest text.
+
+   Where a fine and a major ruling cross the stock reaches ~#3C3A37 and
+   the accent falls to 4.16. That is one pixel in every 14,400 and it is
+   the same sub-pixel artefact recorded for the paper theme. It is not a
+   text background. Recorded so nobody re-measures it and files a bug.
+   =================================================================== */
+
+[data-surface="dark"] {
+  /* --- the stock ---
+     `surface` is the dark panel - rail chrome, printed on the same
+     stock rather than laid on it. `surface-2` is the deeper board the
+     page sits on, and it doubles as the ink INSIDE an inverted blob
+     (`text-surface-2` on the rail's button and name chips), which is
+     why it is a real colour and not a tint of the ground. */
+  --color-ground: #262420;
+  --color-surface: #262420;
+  --color-surface-2: #211f1b;
+  --color-surface-accent: #2b2823;
+
+  /* --- ink, warm ivory ---
+     The same three-step ladder as the paper theme, inverted. Nothing
+     here is pure white; a notebook printed on dark stock is still
+     printed in a warm ink. */
+  --color-ink: #f4f0e7;
+  --color-ink-2: #d4cfc3;
+  --color-ink-3: #bab3a5;
+  --color-faint: #c6c0b3;
+
+  /* --- ruled lines ---
+     Ivory at low alpha rather than a solid grey, so a divider sitting
+     on a ruled line composites with it instead of covering it. Same
+     inside/around split as the paper theme. */
+  --color-hair: rgb(244 240 231 / 0.24);
+  --color-hair-strong: rgb(244 240 231 / 0.28);
+
+  /* The process-sheet connector arrows read as barely-there against
+     charcoal at `--color-hair-strong`'s 0.28 — a border weight, not a
+     drawn-line weight. Brighter and more opaque here; see the token's
+     definition in `:root` for why it is not just `--color-hair-strong`
+     raised globally. */
+  --flow-stroke: rgb(244 240 231 / 0.55);
+
+  /* --- the one colour, lifted ---
+     #A8492A is a red pencil on white and it is 2.4 against charcoal -
+     unreadable. The accent moves up the ramp until it clears AA on the
+     stock and stops there. It is still a pencil, not a highlight, and
+     it is still rationed to the same two jobs: the hand notes, and the
+     marks on stage 05. */
+  --color-accent: #d98a5f;
+  --color-accent-lift: #e8a07a;
+  --color-accent-deep: #c0703f;
+
+  --loop-stroke: rgb(217 138 95 / 0.5);
+
+  /* --- shading ---
+     The hatch band under a panel is a SHADOW, so on dark stock it goes
+     black rather than following the ink. Ivory hatching here would read
+     as a glow, and there are no glows in this system. */
+  --graphite: 0 0 0;
+  --hatch-max: 0.3;
+
+  /* --- ruling, inverted ---
+     Pitches are untouched - the dark band's grid has to line up with
+     the paper grid it interrupts, to the pixel. Only the pigment and
+     the two alphas move. Mirrored in components/dark-sheet.tsx, which
+     paints the band itself. */
+  --rule-ink: 255 255 255;
+  --rule-alpha-fine: 0.045;
+  --rule-alpha-major: 0.06;
+
+  color: var(--color-ink);
+}
+
+/* The highlighter, restruck in ivory - `--graphite` went black above and
+   a black highlighter on charcoal selects nothing visible. */
+[data-surface="dark"] ::selection {
+  background: rgb(244 240 231 / 0.24);
+  color: var(--color-ink);
+}
+
+/* ===================================================================
+   PAPER ON A DARK DESK
+
+   A `.mount` is a piece of paper. It does not change colour because the
+   desk did - the stage cards on this sheet, and every captured screen
+   anywhere on the site, stay light.
+
+   THE ENTIRE PAPER PALETTE IS RE-DECLARED ON THE ELEMENT, not just its
+   fill. Custom properties inherit, so a card left holding only a light
+   background would fill white and then print ivory body copy on it,
+   handed down from the section around it. Anything a call site inside a
+   card can ask for - ink, hair, accent, hatch pigment, the inner ruling
+   on `.mount-ruled` - has to be answered here, or it arrives from the
+   dark scope.
+
+   `color` is set outright as well as `--color-ink`, because plenty of
+   copy inside a card inherits rather than naming a utility.
+
+   The shadow is the one thing that genuinely changes. `3px 4px` at 6%
+   is a sheet lying on a sheet; on a dark desk it disappears entirely.
+   `6px 7px 0 rgb(0 0 0 / 0.22)` is the same offset gesture with enough
+   weight to say the card is resting ON something. Still a hard offset
+   block, still no blur - this system does not own a soft shadow.
+   =================================================================== */
+[data-surface="dark"] .mount {
+  --color-surface: #fbf9f5;
+  --color-surface-2: #ffffff;
+  --color-surface-accent: #fdf8f5;
+
+  --color-ink: #2d2924;
+  --color-ink-2: #57514a;
+  --color-ink-3: #6e675c;
+  --color-faint: #8c8477;
+
+  --color-hair: #e3dccc;
+  --color-hair-strong: #cfc6b4;
+
+  --color-accent: #a8492a;
+  --color-accent-lift: #c25a35;
+  --color-accent-deep: #7e3319;
+  --loop-stroke: #d3b7a8;
+
+  --graphite: 110 103 92;
+  --hatch-max: 0.16;
+  --rule-ink: 45 41 36;
+
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 6px 7px 0 rgb(0 0 0 / 0.22);
+}
+
+} /* @layer components */
+
+/* ===================================================================
    Reduced motion
 
-   The fallback is a design deliverable, not an error state: the sun
-   parks at its rest angle, shadows stay, atmosphere stays. Only
-   movement stops.
+   The drawing is not motion. Lines stay wobbly, hatching stays,
+   graphite stays — only movement stops.
    =================================================================== */
 @media (prefers-reduced-motion: reduce) {
   *,

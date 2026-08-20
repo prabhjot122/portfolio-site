@@ -1,8 +1,8 @@
 import { Section, SectionLabel, Reveal } from "@/components/section";
 import { PlaceholderMedia } from "@/components/placeholder-media";
-import { services, site } from "@/lib/content";
+import { site, whatWeBuild } from "@/lib/content";
 
-export const metadata = { title: "About" };
+export const metadata = { title: "Who we are" };
 
 export default function AboutPage() {
   return (
@@ -11,7 +11,7 @@ export default function AboutPage() {
         <div className="mx-auto max-w-[89.5rem]">
           <Reveal>
             <h1 className="max-w-[18ch] display-l">
-              About
+              Who we are
             </h1>
           </Reveal>
         </div>
@@ -26,45 +26,57 @@ export default function AboutPage() {
           </div>
           <div className="md:col-span-7">
             <Reveal delay={0.08}>
-              <p className="max-w-[50ch] font-serif text-2xl leading-[1.4] font-light md:text-3xl">
-                I build AI systems that have to work when nobody is watching -
-                agents, retrieval pipelines, edge models and the data
-                plumbing underneath them.
+              <p className="lede max-w-[50ch] text-[clamp(1.3125rem,2.1vw,1.625rem)] leading-[1.45] text-ink">
+                Learning businesses are not identical. Their software
+                shouldn&rsquo;t be either.
               </p>
               <p className="mt-8 max-w-[60ch] text-lg leading-[1.55] text-ink-2">
-                Three end-to-end products so far, across three unrelated
-                verticals: a research engine that fact-checks its own output, a
-                webcam posture device that predicts chronic risk on a Raspberry
-                Pi, and a voice-first teaching assistant running in five pilot
-                schools. Alongside them, two conference papers - one on making
-                small language models cheap enough to deploy anywhere, one on
-                fine-tuned LLM and RAG pipelines for unstructured survey text.
+                {site.name} is a two-person learning-technology studio. We
+                design and build custom learning systems for educators and
+                education businesses &mdash; LMS platforms, AI learning tools
+                and education software that has to fit a specific way of
+                teaching rather than the other way round.
               </p>
               <p className="mt-6 max-w-[60ch] text-lg leading-[1.55] text-ink-2">
-                The research is not decorative. The small-model work is what
-                makes the edge device viable; the retrieval work is what makes
-                the research engine verifiable. If I am recommending an
-                approach, it is usually because I have already paid for the
-                version that did not work.
+                An LMS is usually where the work starts, because that is where
+                most of the friction is. It is not where it stops. A programme
+                built on cohorts behaves nothing like one built on
+                self-paced modules; an assessment model that turns on
+                practical demonstration needs software a quiz engine cannot
+                describe. So we begin by understanding the teaching model, and
+                decide what the system should be after that.
               </p>
               <p className="mt-6 max-w-[60ch] text-lg leading-[1.55] text-ink-2">
-                Based in {site.location}, and open to freelance work.
+                Behind the product work there are two conference papers &mdash;
+                one on making small language models cheap enough to deploy
+                anywhere, one on fine-tuned LLM and retrieval pipelines for
+                unstructured survey text. The research is not decorative. It is
+                the reason we can say what an AI feature will actually cost to
+                run, and when it is not worth building at all.
+              </p>
+              <p className="mt-6 max-w-[60ch] text-lg leading-[1.55] text-ink-2">
+                Based in {site.location}. {site.backedBy}.
               </p>
             </Reveal>
           </div>
         </div>
       </Section>
 
+      {/* The same modules the home page assembles from, listed plainly.
+          One source (`whatWeBuild.modules`) so the two pages cannot
+          drift into describing different businesses. */}
       <Section className="!pt-0">
-        <SectionLabel>Services</SectionLabel>
+        <SectionLabel>What we build</SectionLabel>
         <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2">
-          {services.map((s, i) => (
+          {whatWeBuild.modules.map((s, i) => (
             <Reveal key={s.n} delay={i * 0.05}>
               <div className="border-t border-hair pt-6">
                 <span className="font-mono text-[13px] text-ink-3">
                   {s.n}
                 </span>
-                <h3 className="mt-4 font-serif text-2xl font-light">{s.title}</h3>
+                <h3 className="display-m mt-4 text-[clamp(1.375rem,1.9vw,1.625rem)]">
+                  {s.title}
+                </h3>
                 <p className="mt-3 max-w-[42ch] leading-[1.55] text-ink-2">
                   {s.body}
                 </p>

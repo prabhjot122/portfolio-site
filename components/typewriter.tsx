@@ -36,7 +36,7 @@ const START_DELAY = 340;
 
 /**
  * A word wrapped in `*asterisks*` types normally but renders in the
- * accent colour, italic — used to pull out the one or two terms in the
+ * accent colour — used to pull out the one or two terms in the
  * hero statement that carry the claim. The asterisks are stripped before
  * typing so they never appear as characters or affect the letter count.
  */
@@ -119,6 +119,12 @@ export function Typewriter({
 
       <span aria-hidden>
         {parsedLines.map((words, li) => {
+          const lineActive = caretOnLine(strippedLines, typed, li);
+          // Set once the caret has been dropped inline, mid-word or in a
+          // gap between words, so the trailing check below doesn't double
+          // it up at the end of the line.
+          let caretPlaced = false;
+
           return (
             <span key={li} className="block">
               {words.map(({ word, highlight }, wi) => {
@@ -127,22 +133,31 @@ export function Typewriter({
                   <span
                     key={wi}
                     className={`inline-block whitespace-nowrap ${
-                      highlight ? "italic-safe italic text-accent" : ""
+                      highlight ? "italic-safe text-accent" : ""
                     }`}
                   >
                     {chars.map((ch, ci) => {
                       const idx = cursor + ci;
                       const shown = idx < typed;
+                      // The caret rides the character it is about to
+                      // type, not the far edge of the (pre-sized) line —
+                      // the line's full width is already reserved by the
+                      // hidden characters, so anchoring it to the line's
+                      // end would leave it parked there from frame one.
+                      const showCaretHere = lineActive && idx === typed;
+                      if (showCaretHere) caretPlaced = true;
                       return (
-                        <span
-                          key={ci}
-                          style={{
-                            opacity: shown ? 1 : 0,
-                            // No transition: a fade per glyph turns the
-                            // whole line into a shimmer. Keys land.
-                          }}
-                        >
-                          {ch}
+                        <span key={ci} className="inline-block">
+                          {showCaretHere && <Caret done={done} />}
+                          <span
+                            style={{
+                              opacity: shown ? 1 : 0,
+                              // No transition: a fade per glyph turns the
+                              // whole line into a shimmer. Keys land.
+                            }}
+                          >
+                            {ch}
+                          </span>
                         </span>
                       );
                     })}
@@ -152,13 +167,23 @@ export function Typewriter({
                 // Spaces are not typed characters here — they belong to
                 // the gap between words and would otherwise show as a
                 // stalled beat.
-                const space = wi < words.length - 1 ? <span key={`s${wi}`}> </span> : null;
+                const spaceIdx = cursor;
+                const spaceCaret =
+                  lineActive && spaceIdx === typed && !caretPlaced;
+                if (spaceCaret) caretPlaced = true;
+                const space =
+                  wi < words.length - 1 ? (
+                    <span key={`s${wi}`}>
+                      {spaceCaret && <Caret done={done} />}{" "}
+                    </span>
+                  ) : null;
                 return [node, space];
               })}
 
-              {/* Caret rides the line currently being typed, and rests at
-                  the end of the last line before fading. */}
-              {caretOnLine(strippedLines, typed, li) && <Caret done={done} />}
+              {/* Falls back to the end of the line once every character
+                  has been typed — covers the resting caret on the final
+                  line after typing finishes. */}
+              {lineActive && !caretPlaced && <Caret done={done} />}
             </span>
           );
         })}
@@ -179,9 +204,12 @@ function caretOnLine(lines: string[], typed: number, li: number) {
 function Caret({ done }: { done: boolean }) {
   return (
     <span
-      className={`ml-[0.06em] inline-block h-[0.78em] w-[0.045em] translate-y-[0.04em] bg-accent align-baseline ${
+      aria-hidden
+      className={`ml-[0.06em] inline-block align-baseline font-normal not-italic text-accent ${
         done ? "animate-caret-rest" : "animate-caret"
       }`}
-    />
+    >
+      |
+    </span>
   );
 }
