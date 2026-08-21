@@ -42,7 +42,8 @@ const START_DELAY = 340;
  */
 function parseWords(line: string) {
   return line.split(" ").map((raw) => {
-    const highlight = raw.length > 2 && raw.startsWith("*") && raw.endsWith("*");
+    const highlight =
+      raw.length > 2 && raw.startsWith("*") && raw.endsWith("*");
     return { word: highlight ? raw.slice(1, -1) : raw, highlight };
   });
 }
@@ -127,63 +128,89 @@ export function Typewriter({
 
           return (
             <span key={li} className="block">
-              {words.map(({ word, highlight }, wi) => {
-                const chars = [...word];
-                const node = (
-                  <span
-                    key={wi}
-                    className={`inline-block whitespace-nowrap ${
-                      highlight ? "italic-safe text-accent" : ""
-                    }`}
-                  >
-                    {chars.map((ch, ci) => {
-                      const idx = cursor + ci;
-                      const shown = idx < typed;
-                      // The caret rides the character it is about to
-                      // type, not the far edge of the (pre-sized) line —
-                      // the line's full width is already reserved by the
-                      // hidden characters, so anchoring it to the line's
-                      // end would leave it parked there from frame one.
-                      const showCaretHere = lineActive && idx === typed;
-                      if (showCaretHere) caretPlaced = true;
-                      return (
-                        <span key={ci} className="inline-block">
-                          {showCaretHere && <Caret done={done} />}
-                          <span
-                            style={{
-                              opacity: shown ? 1 : 0,
-                              // No transition: a fade per glyph turns the
-                              // whole line into a shimmer. Keys land.
-                            }}
-                          >
-                            {ch}
+              {/* `relative inline-block`: sized to exactly the words it
+                  wraps, not the full line box — `block` above stretches
+                  to the h1's whole measure, and a `right-0` caret
+                  anchored to THAT would land at the h1's right edge
+                  rather than at the end of a short last line. This inner
+                  wrapper is what the trailing, end-of-line caret below
+                  actually sits against. Its width is already the full
+                  reserved text width from frame one (hidden characters
+                  still occupy their glyph width), so `right-0` lands at
+                  the true end of the line regardless of how much has
+                  been typed. */}
+              <span className="relative inline-block">
+                {words.map(({ word, highlight }, wi) => {
+                  const chars = [...word];
+                  const node = (
+                    <span
+                      key={wi}
+                      className={`inline-block whitespace-nowrap ${
+                        highlight ? "italic-safe text-accent" : ""
+                      }`}
+                    >
+                      {chars.map((ch, ci) => {
+                        const idx = cursor + ci;
+                        const shown = idx < typed;
+                        // The caret rides the character it is about to
+                        // type, not the far edge of the (pre-sized) line —
+                        // the line's full width is already reserved by the
+                        // hidden characters, so anchoring it to the line's
+                        // end would leave it parked there from frame one.
+                        const showCaretHere = lineActive && idx === typed;
+                        if (showCaretHere) caretPlaced = true;
+                        return (
+                          // `relative`: gives the caret below a box to sit
+                          // just outside of via `absolute`. It MUST be
+                          // absolute — mounting it as a normal inline
+                          // sibling adds real width to the line for the
+                          // one frame it is there, which can tip a word
+                          // over the wrap point and reflow everything under
+                          // the headline for that frame.
+                          <span key={ci} className="relative inline-block">
+                            {showCaretHere && (
+                              <Caret done={done} className="right-full" />
+                            )}
+                            <span
+                              style={{
+                                opacity: shown ? 1 : 0,
+                                // No transition: a fade per glyph turns the
+                                // whole line into a shimmer. Keys land.
+                              }}
+                            >
+                              {ch}
+                            </span>
                           </span>
-                        </span>
-                      );
-                    })}
-                  </span>
-                );
-                cursor += chars.length;
-                // Spaces are not typed characters here — they belong to
-                // the gap between words and would otherwise show as a
-                // stalled beat.
-                const spaceIdx = cursor;
-                const spaceCaret =
-                  lineActive && spaceIdx === typed && !caretPlaced;
-                if (spaceCaret) caretPlaced = true;
-                const space =
-                  wi < words.length - 1 ? (
-                    <span key={`s${wi}`}>
-                      {spaceCaret && <Caret done={done} />}{" "}
+                        );
+                      })}
                     </span>
-                  ) : null;
-                return [node, space];
-              })}
+                  );
+                  cursor += chars.length;
+                  // Spaces are not typed characters here — they belong to
+                  // the gap between words and would otherwise show as a
+                  // stalled beat.
+                  const spaceIdx = cursor;
+                  const spaceCaret =
+                    lineActive && spaceIdx === typed && !caretPlaced;
+                  if (spaceCaret) caretPlaced = true;
+                  const space =
+                    wi < words.length - 1 ? (
+                      <span key={`s${wi}`} className="relative">
+                        {spaceCaret && (
+                          <Caret done={done} className="right-full" />
+                        )}{" "}
+                      </span>
+                    ) : null;
+                  return [node, space];
+                })}
 
-              {/* Falls back to the end of the line once every character
+                {/* Falls back to the end of the line once every character
                   has been typed — covers the resting caret on the final
                   line after typing finishes. */}
-              {lineActive && !caretPlaced && <Caret done={done} />}
+                {lineActive && !caretPlaced && (
+                  <Caret done={done} className="right-0" />
+                )}
+              </span>
             </span>
           );
         })}
@@ -201,11 +228,24 @@ function caretOnLine(lines: string[], typed: number, li: number) {
   return last ? typed >= start : typed >= start && typed < end;
 }
 
-function Caret({ done }: { done: boolean }) {
+/**
+ * Always `absolute`. It is positioned by `className` (`right-full` to sit
+ * just before a character, `right-0` to rest at a line's own end) against
+ * whichever `relative` box it was dropped into — never a normal-flow
+ * sibling, so mounting or unmounting it never changes anyone's width and
+ * never triggers a wrap.
+ */
+function Caret({
+  done,
+  className = "",
+}: {
+  done: boolean;
+  className?: string;
+}) {
   return (
     <span
       aria-hidden
-      className={`ml-[0.06em] inline-block align-baseline font-normal not-italic text-accent ${
+      className={`absolute mr-[0.06em] font-normal not-italic text-accent ${className} ${
         done ? "animate-caret-rest" : "animate-caret"
       }`}
     >

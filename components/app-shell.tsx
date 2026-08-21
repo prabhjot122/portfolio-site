@@ -110,7 +110,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!isHome) {
       setAtTop(false);
       setActiveId(null);
-      if (railRef.current) railRef.current.style.transform = "translate3d(0,0,0)";
+      if (railRef.current)
+        railRef.current.style.transform = "translate3d(0,0,0)";
       // No dark frame off the home page: park the band and clip the dark
       // rail away, or both keep whatever the last home scroll left them.
       resetDarkSheet(darkRailRef.current);
@@ -288,13 +289,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
     if (darkRailRef.current) railObserver.observe(darkRailRef.current);
 
+    /* The very first `read()` below runs the instant this effect mounts,
+       against whatever the DOM looks like at that moment. On a warm cache
+       that is already the final layout. On a cold one it is not: web
+       fonts and images below the fold are still arriving, every section
+       they touch is still growing, and neither event is a `resize` — so
+       nothing here would otherwise ever re-measure them. The rail then
+       docks and the dark bands sit exactly where that first, half-loaded
+       pass put them, which can be off the visible rail entirely, and nothing
+       after this scheduled a second look. `onResize` already does a full
+       re-resolve of every section plus a fresh read, which is exactly the
+       "the page changed shape, start over" operation this needs — so both
+       signals below just call it once each. */
+    let cancelled = false;
+    document.fonts?.ready?.then(() => {
+      if (!cancelled) onResize();
+    });
+    const onLoad = () => onResize();
+    if (document.readyState === "complete") {
+      onLoad();
+    } else {
+      window.addEventListener("load", onLoad, { once: true });
+    }
+
     read();
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", onResize);
     return () => {
+      cancelled = true;
       railObserver.disconnect();
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("load", onLoad);
       resetDarkSheet(darkRailRef.current);
     };
   }, [isHome]);
